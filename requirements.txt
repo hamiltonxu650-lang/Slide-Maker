@@ -1,0 +1,17 @@
+simple-lama-inpainting
+python-pptx
+Pillow
+opencv-python
+numpy
+pyinstaller
+rapidocr-onnxruntime
+onnxruntime
+wordninja
+PyMuPDF
+PyQt6
+winrt-Windows.Media.Ocr; platform_system == "Windows"
+winrt-Windows.Graphics.Imaging; platform_system == "Windows"
+winrt-Windows.Foundation; platform_system == "Windows"
+winrt-Windows.Foundation.Collections; platform_system == "Windows"
+winrt-Windows.Storage; platform_system == "Windows"
+winrt-Windows.Storage.Streams; platform_system == "Windows"

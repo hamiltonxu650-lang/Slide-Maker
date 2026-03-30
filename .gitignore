@@ -1,0 +1,42 @@
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+
+# Local IDE / OS noise
+.DS_Store
+
+# Build and distribution artifacts
+build/
+dist/
+
+# Node dependencies are vendored only in packaged output, not in source control
+node_modules/
+pptx-project/node_modules/
+
+# Generated Office outputs
+*.pptx
+
+# Generated debug artifacts
+debug_*.py
+debug_*.png
+debug_masks/
+mask_debug_*.png
+test_debug_*.png
+
+# Generated runtime channels / logs
+*.jsonl
+
+# Generated extracted pages and temp workspaces
+test/extracted_*/
+test/temp_extracted/
+test/*_work/
+
+# Generated layout-engine intermediates
+pptx-project/clean_bg_*.png
+pptx-project/ocr_data.json
+pptx-project/test_face_*.png
+
+# Local source bundles / archives
+*.zip
