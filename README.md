@@ -2,86 +2,119 @@
 
 [English](README.md) | [简体中文](README.zh-CN.md)
 
-Slide Maker is an offline desktop tool for turning PDFs, screenshots, and slide images into editable PowerPoint presentations. It is designed for local-first workflows where privacy, layout fidelity, and clean background reconstruction matter more than cloud automation.
+Slide Maker is a local-first toolchain for rebuilding PDFs, screenshots, and slide images into editable PowerPoint presentations.
 
-The current build combines OCR, text cleanup, background inpainting, and PPTX reconstruction into a Windows-focused desktop app with a CLI fallback.
+`v0.2.0` is the first version that brings the current product shape together:
 
-## Features
+- a cross-platform guided `terminal_ui.py`
+- a desktop UI for day-to-day use
+- a CLI for scripted runs
+- user-managed LaMa and OCR model slots
+- a high-fidelity Node layout pass with compatibility fallback
 
-- Convert PDF pages into editable `.pptx` slides
-- Convert screenshots or image folders into editable presentations
-- Rebuild text boxes with OCR-based positions, colors, and sizing
-- Remove original text from the background before rebuilding slides
-- Prefer lightweight OCR backends for local packaging
-- Run fully offline after dependencies are installed
-- Provide both desktop UI and command-line workflows
+## What This Version Does
 
-## How It Works
+Slide Maker can:
 
-Slide Maker uses a multi-stage local pipeline:
+- convert PDF files into editable `.pptx`
+- convert a single image into `.pptx`
+- convert a directory of images into a multi-slide `.pptx`
+- rebuild text boxes from OCR results
+- remove source text from the background before reconstruction
+- stay fully local after dependencies and optional models are ready
 
-1. Extract pages from a PDF or collect input images
-2. Run OCR to detect text, boxes, and reading order
-3. Estimate font size and sample text color from the source image
-4. Remove source text from the page background using inpainting
-5. Reconstruct editable slides as `.pptx`
+The current pipeline is:
 
-The repository currently uses:
+1. extract PDF pages or collect input images
+2. run OCR and detect text boxes
+3. estimate font size and sample text color from the source
+4. clean the background with LaMa or OpenCV fallback
+5. generate an editable `.pptx`
+6. optionally run a Node-based high-fidelity layout pass
 
-- `RapidOCR` as the preferred OCR backend
-- Windows OCR as a fallback on supported systems
-- `simple-lama-inpainting` plus OpenCV fallback for background cleanup
-- `python-pptx` for PowerPoint generation
-- `PyQt6` for the desktop app
+## Platform Support
+
+| Workflow | Windows | macOS | Linux | Notes |
+| --- | --- | --- | --- | --- |
+| Terminal UI | Yes | Yes | Yes | Recommended starting point |
+| CLI | Yes | Yes | Yes | Good for automation |
+| Desktop UI from source | Yes | Yes | Yes | Requires PyQt6 dependencies |
+| Packaged desktop build | Yes | No | No | Current packaging script targets Windows |
 
 ## Requirements
 
-- Python 3.10+ recommended
-- Windows is the primary target for the desktop build
-- PowerShell for the packaging script
-- Local Python environment with the packages in `requirements.txt`
+- Python 3.10 or newer
+- Node.js on `PATH` if you want the high-fidelity layout engine
+- Packages from `requirements.txt`
+- `npm install` inside `pptx-project`
+- PowerShell only when building the Windows packaged app
 
-## Installation
+If Node.js is not available, Slide Maker still runs and falls back to compatibility rendering.
 
-Create a virtual environment and install dependencies:
+## Setup
 
-```bash
-python -m venv venv
-venv\Scripts\activate
-pip install -r requirements.txt
+### Windows
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\setup_windows.ps1
 ```
 
-If you only want to run the code without packaging, this is usually enough.
+### macOS
 
-## Quick Start
+```bash
+bash ./scripts/setup_macos.sh
+```
 
-### Desktop App
+### Linux
 
-Launch the PyQt app:
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip setuptools wheel
+python -m pip install -r requirements.txt
+cd pptx-project && npm install && cd ..
+```
+
+## Recommended Start: Terminal UI
+
+The simplest way to configure and use this release is:
+
+```bash
+python terminal_ui.py
+```
+
+The terminal UI works on Windows, macOS, and Linux and can:
+
+- inspect the runtime environment
+- guide LaMa and OCR model setup from scratch
+- download the official OCR ONNX models into the reserved slot
+- open model directories for you
+- save default conversion preferences
+- run PDF, image, and image-directory conversions interactively
+
+## Other Entry Points
+
+### Desktop UI
 
 ```bash
 python ui_app.py
 ```
 
-The current UI supports two real workflows:
+Useful flags:
 
-- PDF to PPTX
-- Image to PPTX
+```bash
+python ui_app.py --demo
+```
 
 ### CLI
 
-Run the higher-level conversion entrypoint:
-
 ```bash
 python run_pipeline.py input.pdf --output Result_Presentation.pptx
-```
-
-Or convert an image or image folder:
-
-```bash
 python run_pipeline.py input.png --output Result_Presentation.pptx
-python run_pipeline.py path\to\image_folder --output Result_Presentation.pptx
+python run_pipeline.py ./slides --output Result_Presentation.pptx
 ```
+
+Use `--no-open` if you do not want the app to prompt to open the result.
 
 ### Web App
 
@@ -108,29 +141,92 @@ The web UI currently supports:
 - Conversion focus selection
 - Direct `.pptx` download
 
-### Lower-Level Script
-
-The original lower-level pipeline is still available:
+### Lower-Level Pipeline
 
 ```bash
-python main.py --input path\to\images --output output.pptx
+python main.py --input ./slides --output output.pptx
 ```
+
+## Model Management
+
+### LaMa Background-Repair Model
+
+Slide Maker no longer treats the LaMa weight as a bundled repository asset.
+
+Expected filename:
+
+- `big-lama.pt`
+
+Supported locations:
+
+- reserved slot: `.slide_maker_data/models/lama/big-lama.pt`
+- custom environment variable: `SLIDE_MAKER_LAMA_MODEL`
+- compatibility alias: `LAMA_MODEL`
+
+If LaMa is not configured, Slide Maker automatically falls back to OpenCV Telea.
+
+Upstream model source used by the original dependency:
+
+- [big-lama.pt](https://github.com/enesmsahin/simple-lama-inpainting/releases/download/v0.1.0/big-lama.pt)
+
+### OCR Models
+
+By default, Slide Maker can use the packaged RapidOCR models. This release also supports user-managed OCR models.
+
+Reserved slot directory:
+
+- `.slide_maker_data/models/rapidocr/onnxruntime/`
+
+Expected filenames:
+
+- `ch_PP-OCRv4_det_infer.onnx`
+- `ch_ppocr_mobile_v2.0_cls_infer.onnx`
+- `ch_PP-OCRv4_rec_infer.onnx`
+
+Custom environment variables:
+
+- `SLIDE_MAKER_OCR_DET_MODEL`
+- `SLIDE_MAKER_OCR_CLS_MODEL`
+- `SLIDE_MAKER_OCR_REC_MODEL`
+
+Quick download into the reserved slot:
+
+```bash
+python scripts/download_ocr_models.py
+```
+
+## Rendering Modes
+
+Slide Maker can finish in two ways:
+
+- High fidelity: uses Node.js and `pptx-project/layout_engine.js` for better layout recovery
+- Compatibility: keeps the Python-generated `.pptx` output when Node.js is unavailable or compatibility mode is selected
+
+That means the tool remains usable even on a minimal setup.
+
+## Runtime Data
+
+At runtime, Slide Maker writes logs, temp files, and model slots into app data:
+
+- source checkout on macOS/Linux: `.slide_maker_data/`
+- Windows app-data mode: `%LOCALAPPDATA%\SlideMaker\`
+
+Useful subdirectories include:
+
+- `logs/`
+- `runtime/`
+- `models/lama/`
+- `models/rapidocr/onnxruntime/`
+- `config/`
 
 ## Packaging
 
-This repo includes a Windows packaging script based on PyInstaller:
+Windows packaging is driven by:
 
-```powershell
-powershell -ExecutionPolicy Bypass -File build.ps1
-```
+- `build.ps1`
+- `Slide_Maker.spec`
 
-The build script packages:
-
-- the PyQt desktop app
-- OCR runtime dependencies
-- inpainting assets
-- Node-based layout assets under `pptx-project`
-- icons and runtime helpers
+This release no longer packages the LaMa model as a repository-tracked source asset.
 
 ### Docker Deployment
 
@@ -141,37 +237,24 @@ docker build -t slide-maker-web .
 docker run --rm -p 7860:7860 slide-maker-web
 ```
 
-## Project Structure
+## Project Layout
 
 ```text
 .
-├── ui_app.py                    # Desktop app entrypoint
-├── run_pipeline.py              # CLI conversion entrypoint
+├── terminal_ui.py               # Cross-platform guided terminal workflow
+├── ui_app.py                    # Desktop UI entrypoint
+├── run_pipeline.py              # High-level CLI entrypoint
 ├── main.py                      # Core image-to-ppt pipeline
-├── ocr_engine.py                # OCR backend adapter
-├── image_processor.py           # Text mask creation and background cleanup
-├── ppt_generator.py             # PPTX reconstruction
-├── extract_pdf.py               # PDF page extraction
-├── services/                    # Conversion orchestration and app models
+├── services/                    # Settings, runtime detection, conversion orchestration
 ├── ui/                          # PyQt UI components
+├── scripts/                     # Setup helpers and OCR download script
+├── pptx-project/                # Node layout engine assets
 ├── assets/                      # Icons and bundled visuals
-├── pptx-project/                # Supplemental layout engine assets
-├── build.ps1                    # Windows build script
-└── requirements.txt
+└── build.ps1                    # Windows packaging script
 ```
 
-## Output
+## Notes
 
-The result is an editable `.pptx` presentation. Depending on OCR and cleanup availability, output may be:
-
-- fully reconstructed with editable text boxes
-- partially reconstructed with cleaner text layout
-- compatibility-oriented image-based slides when OCR runtime is unavailable
-
-## Status
-
-This repository is an actively iterated local product/workbench rather than a polished public SDK. You will also find development logs and architecture notes in the repo, which are useful for deeper context but are not required for normal usage.
-
-## License
-
-No dedicated README license section was present before this file was added. Review the repository contents and any future license file before commercial or public redistribution.
+- The repository is an actively iterated product workbench, not a polished public SDK.
+- Some historical development logs are still kept in-tree for context.
+- No dedicated license file is documented in the repository root yet. Review usage rights before redistribution.

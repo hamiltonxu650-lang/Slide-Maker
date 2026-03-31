@@ -6,7 +6,7 @@ import shutil
 import sys
 import ctypes
 
-from services.app_models import app_data_root
+from services.app_models import app_data_root, describe_lama_model_setup, describe_ocr_model_setup
 
 
 _DLL_DIRECTORY_HANDLES = []
@@ -168,6 +168,20 @@ def _first_existing_asset(*parts: str) -> Path | None:
     return None
 
 
+def _is_runnable_node_candidate(candidate: Path) -> bool:
+    if not candidate or not candidate.exists() or candidate.is_dir():
+        return False
+
+    name = candidate.name.lower()
+    if os.name == "nt":
+        return name in {"node.exe", "node"}
+
+    if name.endswith(".exe"):
+        return False
+
+    return os.access(candidate, os.X_OK)
+
+
 def find_node_executable(project_root: Path | None = None):
     project_root = project_root or detect_project_root()
     candidates = []
@@ -221,13 +235,7 @@ def find_node_executable(project_root: Path | None = None):
         )
 
     for candidate in candidates:
-        if not candidate or not candidate.exists():
-            continue
-        if os.name != "nt" and candidate.suffix.lower() == ".exe":
-            continue
-        if os.name != "nt" and not os.access(candidate, os.X_OK):
-            continue
-        if candidate.exists():
+        if _is_runnable_node_candidate(candidate):
             return str(candidate)
     return None
 
@@ -235,9 +243,21 @@ def find_node_executable(project_root: Path | None = None):
 def describe_runtime_environment(project_root: Path | None = None) -> dict:
     project_root = project_root or detect_project_root()
     node_path = find_node_executable(project_root)
+    lama_info = describe_lama_model_setup(project_root)
+    ocr_info = describe_ocr_model_setup(project_root)
     return {
         "high_fidelity_available": bool(node_path),
         "node_path": node_path,
         "project_root": str(project_root),
         "log_dir": str(app_data_root(project_root) / "logs"),
+        "lama_model_available": bool(lama_info["available"]),
+        "lama_model_path": str(lama_info["model_path"]),
+        "lama_model_slot": str(lama_info["slot_path"]),
+        "lama_model_source": str(lama_info["source"]),
+        "lama_model_message": str(lama_info["message"]),
+        "ocr_model_slot_dir": str(ocr_info["slot_dir"]),
+        "ocr_model_custom_count": int(ocr_info["custom_model_count"]),
+        "ocr_model_custom_complete": bool(ocr_info["custom_model_complete"]),
+        "ocr_model_has_invalid": bool(ocr_info["has_invalid_custom_model"]),
+        "ocr_model_message": str(ocr_info["message"]),
     }

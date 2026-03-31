@@ -1,6 +1,6 @@
 import argparse
-import glob
 import os
+from pathlib import Path
 
 import cv2
 
@@ -78,9 +78,11 @@ def process_images_to_ppt(
 
     images = []
     if os.path.isdir(input_dir_or_file):
-        for ext in ("*.png", "*.jpg", "*.jpeg"):
-            images.extend(glob.glob(os.path.join(input_dir_or_file, ext)))
-        images.sort()
+        images = [
+            str(path)
+            for path in sorted(Path(input_dir_or_file).iterdir())
+            if path.is_file() and path.suffix.lower() in {".png", ".jpg", ".jpeg"}
+        ]
     else:
         images = [input_dir_or_file]
 
@@ -98,6 +100,9 @@ def process_images_to_ppt(
     if ocr_status["available"]:
         backend = ocr_status.get("backend") or "unknown"
         _emit_log(log_cb, f"[*] OCR backend: {backend}")
+        model_message = str(ocr_status.get("model_message") or "").strip()
+        if model_message:
+            _emit_log(log_cb, f"[*] {model_message}")
     else:
         _emit_log(
             log_cb,

@@ -15,6 +15,7 @@ from services.app_models import (
     app_data_root,
     build_conversion_options,
     build_log_path,
+    describe_lama_model_setup,
 )
 from services.runtime_env import describe_runtime_environment, detect_project_root, find_node_executable
 
@@ -50,12 +51,16 @@ def _emit_progress(progress_cb, stage, percent, detail):
 
 
 def infer_input_kind(input_path):
+    if Path(input_path).is_dir():
+        return "image"
     suffix = Path(input_path).suffix.lower()
     if suffix == ".pdf":
         return "pdf"
     if suffix in SUPPORTED_IMAGE_EXTENSIONS:
         return "image"
     raise ConversionError(f"暂不支持的输入类型：{suffix or 'unknown'}")
+
+
 def _resolve_output_path(input_path: str, output_path: str) -> str:
     if output_path:
         return str(Path(output_path).expanduser().resolve())
@@ -99,6 +104,8 @@ def run_conversion(
     preferences = TaskPreferences.from_dict(preferences.to_dict() if isinstance(preferences, TaskPreferences) else preferences)
     options = build_conversion_options(settings, preferences)
     logger = DiagnosticLogger(settings.diagnostic_logs, project_root, log_cb=log_cb)
+    lama_info = describe_lama_model_setup(project_root)
+    fallback_messages = []
 
     if not os.path.exists(input_path):
         raise FileNotFoundError(f"输入文件不存在：{input_path}")
@@ -110,7 +117,7 @@ def run_conversion(
     if input_kind not in {"pdf", "image"}:
         raise ConversionError("当前版本只支持 PDF 和图片转 PPTX。")
 
-    if input_kind == "image" and Path(input_path).suffix.lower() not in SUPPORTED_IMAGE_EXTENSIONS:
+    if input_kind == "image" and not Path(input_path).is_dir() and Path(input_path).suffix.lower() not in SUPPORTED_IMAGE_EXTENSIONS:
         raise ConversionError("图片输入目前仅支持 PNG、JPG、JPEG。")
 
     _emit_progress(progress_cb, "校验输入", 5, "正在检查输入路径与输出位置")
@@ -126,6 +133,13 @@ def run_conversion(
     logger.emit(f"[*] Input kind: {input_kind}")
     logger.emit(f"[*] Output path: {output_path}")
     logger.emit(f"[*] Preference focus: {options['preference_focus']}")
+    if not lama_info["available"]:
+        logger.emit(f"[!] {lama_info['message']}")
+        fallback_messages.append(
+            f"未检测到 LaMa 模型，背景修复将回退到 OpenCV。"
+            f"请将 big-lama.pt 放到 {lama_info['slot_path']}，"
+            "或设置环境变量 SLIDE_MAKER_LAMA_MODEL。"
+        )
     if options["preference_tags"]:
         logger.emit(f"[*] Mapped note tags: {', '.join(options['preference_tags'])}")
     if options["user_note"]:
@@ -179,14 +193,14 @@ def run_conversion(
     _emit_progress(progress_cb, "生成 PPTX", 80, "正在生成可编辑 PPTX")
 
     if not process_result.get("ocr_runtime_available", True):
-        fallback_notice = "OCR 运行时不可用，已自动切换为兼容输出（保留原图页面）。"
+        fallback_messages.append("OCR 运行时不可用，已自动切换为兼容输出（保留原图页面）。")
         logger.emit("[!] OCR runtime unavailable. Keeping compatibility output.")
     elif requested_renderer == RENDERER_COMPATIBILITY:
         logger.emit("[*] Compatibility mode selected, keeping Python-generated PPTX.")
     else:
         node_executable = find_node_executable(project_root)
         if not node_executable:
-            fallback_notice = "高保真运行时不可用，已自动切换兼容模式。"
+            fallback_messages.append("高保真运行时不可用，已自动切换兼容模式。")
             logger.emit("[!] node.exe not found. Falling back to compatibility mode.")
         else:
             logger.emit(f"[*] Using Node runtime: {node_executable}")
@@ -202,6 +216,8 @@ def run_conversion(
                 logger,
             )
             renderer = "node"
+
+    fallback_notice = "\n".join(message for message in fallback_messages if message)
 
     _emit_progress(progress_cb, "完成", 100, "转换完成，可以打开结果文件")
 
