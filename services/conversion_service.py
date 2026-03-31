@@ -59,6 +59,8 @@ def infer_input_kind(input_path):
     if suffix in SUPPORTED_IMAGE_EXTENSIONS:
         return "image"
     raise ConversionError(f"暂不支持的输入类型：{suffix or 'unknown'}")
+
+
 def _resolve_output_path(input_path: str, output_path: str) -> str:
     if output_path:
         return str(Path(output_path).expanduser().resolve())
@@ -115,7 +117,7 @@ def run_conversion(
     if input_kind not in {"pdf", "image"}:
         raise ConversionError("当前版本只支持 PDF 和图片转 PPTX。")
 
-    if input_kind == "image" and Path(input_path).suffix.lower() not in SUPPORTED_IMAGE_EXTENSIONS:
+    if input_kind == "image" and not Path(input_path).is_dir() and Path(input_path).suffix.lower() not in SUPPORTED_IMAGE_EXTENSIONS:
         raise ConversionError("图片输入目前仅支持 PNG、JPG、JPEG。")
 
     _emit_progress(progress_cb, "校验输入", 5, "正在检查输入路径与输出位置")

@@ -1,6 +1,6 @@
 import argparse
-import glob
 import os
+from pathlib import Path
 
 import cv2
 
@@ -78,9 +78,11 @@ def process_images_to_ppt(
 
     images = []
     if os.path.isdir(input_dir_or_file):
-        for ext in ("*.png", "*.jpg", "*.jpeg"):
-            images.extend(glob.glob(os.path.join(input_dir_or_file, ext)))
-        images.sort()
+        images = [
+            str(path)
+            for path in sorted(Path(input_dir_or_file).iterdir())
+            if path.is_file() and path.suffix.lower() in {".png", ".jpg", ".jpeg"}
+        ]
     else:
         images = [input_dir_or_file]
 
