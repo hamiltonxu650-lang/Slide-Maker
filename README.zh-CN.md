@@ -83,6 +83,31 @@ python run_pipeline.py input.png --output Result_Presentation.pptx
 python run_pipeline.py path\to\image_folder --output Result_Presentation.pptx
 ```
 
+### Web 版
+
+如果你想把它作为网页使用，可以启动 FastAPI Web 入口：
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements-web.txt
+cd pptx-project && npm install && cd ..
+uvicorn web_app:app --host 0.0.0.0 --port 7860
+```
+
+启动后访问：
+
+```text
+http://127.0.0.1:7860
+```
+
+网页当前支持：
+
+- 上传 PDF
+- 上传 PNG / JPG / JPEG
+- 选择转换重点
+- 直接下载生成的 `.pptx`
+
 ### 底层脚本
 
 原始的底层图像转 PPT 流程仍然保留：
@@ -106,6 +131,15 @@ powershell -ExecutionPolicy Bypass -File build.ps1
 - 去字修复相关资源
 - `pptx-project` 里的 Node 布局资源
 - 图标和运行时辅助文件
+
+### Docker 部署
+
+仓库现在也提供了 Web 版的 Dockerfile，可直接部署到支持 Docker 的平台，例如 Railway、Render、Fly.io 或自建服务器：
+
+```bash
+docker build -t slide-maker-web .
+docker run --rm -p 7860:7860 slide-maker-web
+```
 
 ## 项目结构
 

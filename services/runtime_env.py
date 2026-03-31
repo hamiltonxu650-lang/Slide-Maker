@@ -172,40 +172,62 @@ def find_node_executable(project_root: Path | None = None):
     project_root = project_root or detect_project_root()
     candidates = []
 
+    node_on_path = shutil.which("node")
+    if node_on_path:
+        candidates.append(Path(node_on_path))
+
     for root in get_runtime_roots():
-        candidates.extend(
-            [
-                root / "runtime" / "node.exe",
-                root / "runtime" / "node",
-                root / "_internal" / "runtime" / "node.exe",
-                root / "_internal" / "runtime" / "node",
-                root / "node.exe",
-                root / "node",
-                root / "nodejs" / "node.exe",
-                root / "nodejs" / "node",
-            ]
-        )
+        if os.name == "nt":
+            candidates.extend(
+                [
+                    root / "runtime" / "node.exe",
+                    root / "runtime" / "node",
+                    root / "_internal" / "runtime" / "node.exe",
+                    root / "_internal" / "runtime" / "node",
+                    root / "node.exe",
+                    root / "node",
+                    root / "nodejs" / "node.exe",
+                    root / "nodejs" / "node",
+                ]
+            )
+        else:
+            candidates.extend(
+                [
+                    root / "runtime" / "node",
+                    root / "_internal" / "runtime" / "node",
+                    root / "node",
+                    root / "nodejs" / "node",
+                ]
+            )
 
     candidates.extend(
         [
-            project_root / "runtime" / "node.exe",
             project_root / "runtime" / "node",
-            Path(r"C:\Program Files\nodejs\node.exe"),
-            Path(r"C:\Program Files (x86)\nodejs\node.exe"),
-            Path(os.path.expandvars(r"%APPDATA%\nodejs\node.exe")),
-            Path(os.path.expandvars(r"%LOCALAPPDATA%\bin\node.exe")),
             Path("/opt/homebrew/bin/node"),
             Path("/usr/local/bin/node"),
             Path("/usr/bin/node"),
         ]
     )
 
-    node_on_path = shutil.which("node")
-    if node_on_path:
-        candidates.append(Path(node_on_path))
+    if os.name == "nt":
+        candidates.extend(
+            [
+                project_root / "runtime" / "node.exe",
+                Path(r"C:\Program Files\nodejs\node.exe"),
+                Path(r"C:\Program Files (x86)\nodejs\node.exe"),
+                Path(os.path.expandvars(r"%APPDATA%\nodejs\node.exe")),
+                Path(os.path.expandvars(r"%LOCALAPPDATA%\bin\node.exe")),
+            ]
+        )
 
     for candidate in candidates:
-        if candidate and candidate.exists():
+        if not candidate or not candidate.exists():
+            continue
+        if os.name != "nt" and candidate.suffix.lower() == ".exe":
+            continue
+        if os.name != "nt" and not os.access(candidate, os.X_OK):
+            continue
+        if candidate.exists():
             return str(candidate)
     return None
 

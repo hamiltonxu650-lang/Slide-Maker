@@ -83,6 +83,31 @@ python run_pipeline.py input.png --output Result_Presentation.pptx
 python run_pipeline.py path\to\image_folder --output Result_Presentation.pptx
 ```
 
+### Web App
+
+If you want to run Slide Maker as a web app, start the FastAPI entrypoint:
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements-web.txt
+cd pptx-project && npm install && cd ..
+uvicorn web_app:app --host 0.0.0.0 --port 7860
+```
+
+Then open:
+
+```text
+http://127.0.0.1:7860
+```
+
+The web UI currently supports:
+
+- PDF uploads
+- PNG / JPG / JPEG uploads
+- Conversion focus selection
+- Direct `.pptx` download
+
 ### Lower-Level Script
 
 The original lower-level pipeline is still available:
@@ -106,6 +131,15 @@ The build script packages:
 - inpainting assets
 - Node-based layout assets under `pptx-project`
 - icons and runtime helpers
+
+### Docker Deployment
+
+The repository now also includes a Dockerfile for the web version, so it can be deployed to Docker-capable platforms such as Railway, Render, Fly.io, or a self-hosted server:
+
+```bash
+docker build -t slide-maker-web .
+docker run --rm -p 7860:7860 slide-maker-web
+```
 
 ## Project Structure
 

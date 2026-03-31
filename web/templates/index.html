@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Slide Maker Web</title>
+    <link rel="stylesheet" href="{{ url_for('static', path='/styles.css') }}" />
+  </head>
+  <body>
+    <main class="shell">
+      <section class="hero">
+        <p class="eyebrow">Slide Maker Web</p>
+        <h1>把 PDF 和截图转成可编辑的 PowerPoint</h1>
+        <p class="lead">
+          这个网页入口直接复用 Slide Maker 的本地转换链路，上传 PDF、单张图片或截图后，就能导出可编辑的
+          <code>.pptx</code>。
+        </p>
+        <div class="runtime">
+          <span class="runtime-pill {% if runtime.high_fidelity_available %}ok{% else %}warn{% endif %}">
+            {% if runtime.high_fidelity_available %}高保真排版已启用{% else %}当前仅兼容模式可用{% endif %}
+          </span>
+          <p class="runtime-text">
+            Node 运行时:
+            <code>{{ runtime.node_path or '未找到' }}</code>
+          </p>
+        </div>
+      </section>
+
+      <section class="card">
+        <form action="/convert" method="post" enctype="multipart/form-data" class="form">
+          <label class="field">
+            <span>上传文件</span>
+            <input type="file" name="file" accept=".pdf,.png,.jpg,.jpeg" required />
+          </label>
+
+          <label class="field">
+            <span>转换重点</span>
+            <select name="focus">
+              {% for option in focus_options %}
+              <option value="{{ option.value }}" {% if selected_focus == option.value %}selected{% endif %}>
+                {{ option.label }}
+              </option>
+              {% endfor %}
+            </select>
+          </label>
+
+          <label class="field">
+            <span>补充说明</span>
+            <textarea
+              name="note"
+              rows="4"
+              placeholder="例如：尽量保留原始排版、标题清晰一点、背景修干净一些"
+            >{{ note }}</textarea>
+          </label>
+
+          {% if error %}
+          <div class="alert">{{ error }}</div>
+          {% endif %}
+
+          <button type="submit">开始转换并下载 PPTX</button>
+        </form>
+      </section>
+    </main>
+  </body>
+</html>
