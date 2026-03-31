@@ -27,6 +27,7 @@ test_debug_*.png
 
 # Generated runtime channels / logs
 *.jsonl
+.slide_maker_data/
 
 # Generated extracted pages and temp workspaces
 test/extracted_*/

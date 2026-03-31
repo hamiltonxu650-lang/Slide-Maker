@@ -10,7 +10,6 @@ if (-not (Test-Path $python)) {
 $arguments = @(
     '-y'
     '--name=Slide_Maker'
-    '--add-data=models;models'
     '--add-data=pptx-project\layout_engine.js;pptx-project'
     '--add-data=pptx-project\node_modules;pptx-project\node_modules'
     '--add-data=pptx-project\package.json;pptx-project'
@@ -138,7 +137,6 @@ foreach ($item in @(
     'services',
     'ui',
     'assets',
-    'models',
     'runtime',
     'pptx-project'
 )) {

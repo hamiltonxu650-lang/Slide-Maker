@@ -536,7 +536,7 @@ class MainWindow(QtWidgets.QMainWindow):
         conversion_layout.addLayout(self._form_row("文字模式", self.text_mode_combo))
         grid.addWidget(self.conversion_card, 1, 0)
 
-        self.advanced_card = self._create_setting_card("高级", "查看当前运行模式并管理诊断信息。")
+        self.advanced_card = self._create_setting_card("高级", "查看当前运行模式、模型槽位并管理诊断信息。")
         advanced_layout = self.advanced_card.layout()
         self.diagnostics_checkbox = QtWidgets.QCheckBox("启用隐藏诊断日志")
         advanced_layout.addWidget(self.diagnostics_checkbox)
@@ -550,6 +550,32 @@ class MainWindow(QtWidgets.QMainWindow):
         self.runtime_dir_label.setWordWrap(True)
         self.runtime_dir_label.setTextInteractionFlags(QtCore.Qt.TextInteractionFlag.TextSelectableByMouse)
         advanced_layout.addLayout(self._form_row("诊断目录", self.runtime_dir_label))
+        self.model_status_label = QtWidgets.QLabel("")
+        self.model_status_label.setObjectName("PathValue")
+        self.model_status_label.setWordWrap(True)
+        self.model_status_label.setTextInteractionFlags(QtCore.Qt.TextInteractionFlag.TextSelectableByMouse)
+        advanced_layout.addLayout(self._form_row("LaMa 模型状态", self.model_status_label))
+        self.model_slot_label = QtWidgets.QLabel("")
+        self.model_slot_label.setObjectName("PathValue")
+        self.model_slot_label.setWordWrap(True)
+        self.model_slot_label.setTextInteractionFlags(QtCore.Qt.TextInteractionFlag.TextSelectableByMouse)
+        advanced_layout.addLayout(self._form_row("LaMa 模型槽位", self.model_slot_label))
+        self.model_dir_button = QtWidgets.QPushButton("打开模型目录")
+        self.model_dir_button.setObjectName("SecondaryTextButton")
+        advanced_layout.addWidget(self.model_dir_button)
+        self.ocr_model_status_label = QtWidgets.QLabel("")
+        self.ocr_model_status_label.setObjectName("PathValue")
+        self.ocr_model_status_label.setWordWrap(True)
+        self.ocr_model_status_label.setTextInteractionFlags(QtCore.Qt.TextInteractionFlag.TextSelectableByMouse)
+        advanced_layout.addLayout(self._form_row("OCR 模型状态", self.ocr_model_status_label))
+        self.ocr_model_slot_label = QtWidgets.QLabel("")
+        self.ocr_model_slot_label.setObjectName("PathValue")
+        self.ocr_model_slot_label.setWordWrap(True)
+        self.ocr_model_slot_label.setTextInteractionFlags(QtCore.Qt.TextInteractionFlag.TextSelectableByMouse)
+        advanced_layout.addLayout(self._form_row("OCR 模型槽位", self.ocr_model_slot_label))
+        self.ocr_model_dir_button = QtWidgets.QPushButton("打开 OCR 模型目录")
+        self.ocr_model_dir_button.setObjectName("SecondaryTextButton")
+        advanced_layout.addWidget(self.ocr_model_dir_button)
         self.diagnostic_dir_button = QtWidgets.QPushButton("打开诊断目录")
         self.diagnostic_dir_button.setObjectName("SecondaryTextButton")
         advanced_layout.addWidget(self.diagnostic_dir_button)
@@ -641,6 +667,8 @@ class MainWindow(QtWidgets.QMainWindow):
                 widget.toggled.connect(self._store_settings_from_controls)
 
         self.restore_defaults_button.clicked.connect(self._restore_defaults)
+        self.model_dir_button.clicked.connect(self._open_model_dir)
+        self.ocr_model_dir_button.clicked.connect(self._open_ocr_model_dir)
         self.diagnostic_dir_button.clicked.connect(self._open_diagnostic_dir)
 
     def _apply_settings_to_controls(self, settings: AppSettings):
@@ -706,6 +734,10 @@ class MainWindow(QtWidgets.QMainWindow):
         log_dir = self.runtime_info["log_dir"]
         self.runtime_mode_label.setText(runtime_text)
         self.runtime_dir_label.setText(log_dir)
+        self.model_status_label.setText(self.runtime_info["lama_model_message"])
+        self.model_slot_label.setText(self.runtime_info["lama_model_slot"])
+        self.ocr_model_status_label.setText(self.runtime_info["ocr_model_message"])
+        self.ocr_model_slot_label.setText(self.runtime_info["ocr_model_slot_dir"])
 
     def _refresh_recent_list(self):
         self.recent_list.clear()
@@ -900,3 +932,15 @@ class MainWindow(QtWidgets.QMainWindow):
         log_dir.mkdir(parents=True, exist_ok=True)
         if not open_path_in_shell(log_dir):
             self.status_panel.show_notice("无法打开诊断目录，请手动到日志目录查看。")
+
+    def _open_model_dir(self):
+        model_dir = Path(self.runtime_info["lama_model_slot"]).parent
+        model_dir.mkdir(parents=True, exist_ok=True)
+        if not open_path_in_shell(model_dir):
+            self.status_panel.show_notice("无法打开模型目录，请手动到模型槽位目录查看。")
+
+    def _open_ocr_model_dir(self):
+        model_dir = Path(self.runtime_info["ocr_model_slot_dir"])
+        model_dir.mkdir(parents=True, exist_ok=True)
+        if not open_path_in_shell(model_dir):
+            self.status_panel.show_notice("无法打开 OCR 模型目录，请手动到 OCR 模型槽位目录查看。")

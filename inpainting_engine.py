@@ -1,15 +1,39 @@
-import os
-# Standardize model path for portability
-local_model = os.path.join(os.path.dirname(__file__), "models", "big-lama.pt")
-if os.path.exists(local_model):
-    os.environ["LAMA_MODEL"] = local_model
+from __future__ import annotations
 
-from simple_lama_inpainting import SimpleLama
+import os
 from PIL import Image
 import numpy as np
+from services.app_models import describe_lama_model_setup
+from services.runtime_env import detect_project_root
 
-# Initialize globally to avoid reloading the big model for every slide
-lama = SimpleLama()
+
+_LAMA_INSTANCE = None
+
+
+def get_lama_model_status() -> dict:
+    return describe_lama_model_setup(detect_project_root())
+
+
+def reset_lama_runtime() -> None:
+    global _LAMA_INSTANCE
+    _LAMA_INSTANCE = None
+
+
+def _get_lama():
+    global _LAMA_INSTANCE
+    if _LAMA_INSTANCE is not None:
+        return _LAMA_INSTANCE
+
+    status = get_lama_model_status()
+    if not status["available"]:
+        raise RuntimeError(status["message"])
+
+    os.environ["LAMA_MODEL"] = status["model_path"]
+
+    from simple_lama_inpainting import SimpleLama
+
+    _LAMA_INSTANCE = SimpleLama()
+    return _LAMA_INSTANCE
 
 def inpaint_image_lama(original_image: Image.Image, mask_array: np.ndarray) -> Image.Image:
     """
@@ -23,5 +47,5 @@ def inpaint_image_lama(original_image: Image.Image, mask_array: np.ndarray) -> I
         
     mask_image = Image.fromarray(mask_array).convert('L')
     
-    result = lama(original_image, mask_image)
+    result = _get_lama()(original_image, mask_image)
     return result

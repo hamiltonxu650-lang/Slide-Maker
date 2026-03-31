@@ -98,6 +98,9 @@ def process_images_to_ppt(
     if ocr_status["available"]:
         backend = ocr_status.get("backend") or "unknown"
         _emit_log(log_cb, f"[*] OCR backend: {backend}")
+        model_message = str(ocr_status.get("model_message") or "").strip()
+        if model_message:
+            _emit_log(log_cb, f"[*] {model_message}")
     else:
         _emit_log(
             log_cb,

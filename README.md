@@ -53,7 +53,60 @@ pip install -r requirements.txt
 
 If you only want to run the code without packaging, this is usually enough.
 
+### Optional LaMa Model
+
+This repository no longer treats the LaMa weight as a bundled source asset and does not rely on a hard-coded in-repo model path.
+
+If you want AI background repair, download `big-lama.pt` yourself and place it in one of these locations:
+
+- the reserved slot: `.slide_maker_data/models/lama/big-lama.pt`
+- a custom path pointed to by `SLIDE_MAKER_LAMA_MODEL`
+
+If no LaMa model is present, Slide Maker falls back to OpenCV Telea for background cleanup.
+
+### Optional OCR Models
+
+Slide Maker can also use user-supplied RapidOCR ONNX models instead of relying only on the packaged defaults.
+
+Reserved OCR slot directory:
+
+- `.slide_maker_data/models/rapidocr/onnxruntime/`
+
+Expected filenames:
+
+- `ch_PP-OCRv4_det_infer.onnx`
+- `ch_ppocr_mobile_v2.0_cls_infer.onnx`
+- `ch_PP-OCRv4_rec_infer.onnx`
+
+Custom path environment variables:
+
+- `SLIDE_MAKER_OCR_DET_MODEL`
+- `SLIDE_MAKER_OCR_CLS_MODEL`
+- `SLIDE_MAKER_OCR_REC_MODEL`
+
+Quick download into the reserved slot:
+
+```bash
+python scripts/download_ocr_models.py
+```
+
 ## Quick Start
+
+### Terminal UI
+
+If you want a guided cross-platform terminal workflow, launch:
+
+```bash
+python terminal_ui.py
+```
+
+The terminal UI works on Windows, macOS, and Linux without an additional TUI framework. It can:
+
+- check the runtime environment
+- guide model setup from scratch
+- download the official OCR ONNX models into the reserved slot
+- configure defaults for conversion
+- run PDF / image / image-folder conversions interactively
 
 ### Desktop App
 

@@ -4,7 +4,7 @@ from PyInstaller.utils.hooks import collect_dynamic_libs
 from PyInstaller.utils.hooks import collect_submodules
 from PyInstaller.utils.hooks import collect_all
 
-datas = [('models', 'models'), ('pptx-project\\layout_engine.js', 'pptx-project'), ('pptx-project\\node_modules', 'pptx-project\\node_modules'), ('pptx-project\\package.json', 'pptx-project'), ('pptx-project\\package-lock.json', 'pptx-project'), ('assets', 'assets')]
+datas = [('pptx-project\\layout_engine.js', 'pptx-project'), ('pptx-project\\node_modules', 'pptx-project\\node_modules'), ('pptx-project\\package.json', 'pptx-project'), ('pptx-project\\package-lock.json', 'pptx-project'), ('assets', 'assets')]
 binaries = [('runtime\\node.exe', 'runtime'), ('C:\\Windows\\System32\\msvcp140.dll', '.'), ('C:\\Windows\\System32\\msvcp140_1.dll', '.'), ('C:\\Windows\\System32\\msvcp140_2.dll', '.'), ('C:\\Windows\\System32\\msvcp140_atomic_wait.dll', '.')]
 hiddenimports = ['onnxruntime', 'onnxruntime.capi.onnxruntime_pybind11_state', 'pymupdf', 'fitz', 'wordninja', 'winrt_ocr_engine', 'winrt.windows.foundation', 'winrt.windows.foundation.collections', 'winrt.windows.media.ocr', 'winrt.windows.graphics.imaging', 'winrt.windows.storage', 'winrt.windows.storage.streams']
 datas += collect_data_files('rapidocr_onnxruntime')

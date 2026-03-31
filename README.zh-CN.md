@@ -53,7 +53,60 @@ pip install -r requirements.txt
 
 如果你只是想直接运行项目，不做打包，这一步通常就够了。
 
+### 可选的 LaMa 模型
+
+当前仓库不再把 LaMa 权重当作内置源码资产，也不会依赖写死在仓库里的模型路径。
+
+如果你想启用 AI 背景修复，请自行下载 `big-lama.pt`，然后放到下面任一位置：
+
+- 预留模型槽位：`.slide_maker_data/models/lama/big-lama.pt`
+- 通过环境变量 `SLIDE_MAKER_LAMA_MODEL` 指向的自定义路径
+
+如果没有检测到 LaMa 模型，Slide Maker 会自动回退到 OpenCV Telea 做背景修复。
+
+### 可选的 OCR 模型
+
+Slide Maker 也支持用户自己提供 RapidOCR 的 ONNX 模型，而不是只依赖包内默认模型。
+
+预留 OCR 模型槽位目录：
+
+- `.slide_maker_data/models/rapidocr/onnxruntime/`
+
+期望文件名：
+
+- `ch_PP-OCRv4_det_infer.onnx`
+- `ch_ppocr_mobile_v2.0_cls_infer.onnx`
+- `ch_PP-OCRv4_rec_infer.onnx`
+
+自定义路径环境变量：
+
+- `SLIDE_MAKER_OCR_DET_MODEL`
+- `SLIDE_MAKER_OCR_CLS_MODEL`
+- `SLIDE_MAKER_OCR_REC_MODEL`
+
+快速下载到预留槽位：
+
+```bash
+python scripts/download_ocr_models.py
+```
+
 ## 快速开始
+
+### Terminal UI
+
+如果你想用一个带引导的跨平台终端界面，可以直接运行：
+
+```bash
+python terminal_ui.py
+```
+
+这个终端界面可在 Windows、macOS、Linux 上使用，不依赖额外的 TUI 框架。它可以：
+
+- 检查运行环境
+- 从 0 开始引导模型配置
+- 把官方 OCR ONNX 模型下载到预留槽位
+- 配置转换默认参数
+- 交互式执行 PDF / 图片 / 图片目录转换
 
 ### 桌面版
 

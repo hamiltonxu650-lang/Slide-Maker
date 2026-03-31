@@ -2,6 +2,8 @@ import re
 from typing import Any
 
 import numpy as np
+from services.app_models import describe_ocr_model_setup
+from services.runtime_env import detect_project_root
 
 try:
     import wordninja
@@ -12,17 +14,37 @@ except Exception:  # pragma: no cover - packaged fallback
 _OCR_ENGINE = None
 _OCR_IMPORT_ERROR = None
 _OCR_BACKEND = None
+_OCR_MODEL_INFO = None
+
+
+def reset_ocr_runtime() -> None:
+    global _OCR_ENGINE, _OCR_IMPORT_ERROR, _OCR_BACKEND, _OCR_MODEL_INFO
+    _OCR_ENGINE = None
+    _OCR_IMPORT_ERROR = None
+    _OCR_BACKEND = None
+    _OCR_MODEL_INFO = None
+
+
+def _build_rapidocr_kwargs() -> dict[str, str]:
+    global _OCR_MODEL_INFO
+
+    _OCR_MODEL_INFO = describe_ocr_model_setup(detect_project_root())
+    kwargs = {}
+    for model_kind, info in _OCR_MODEL_INFO["models"].items():
+        if info["valid"] and info["path"]:
+            kwargs[f"{model_kind}_model_path"] = info["path"]
+    return kwargs
 
 
 def _load_ocr_engine():
-    global _OCR_ENGINE, _OCR_IMPORT_ERROR, _OCR_BACKEND
+    global _OCR_ENGINE, _OCR_IMPORT_ERROR, _OCR_BACKEND, _OCR_MODEL_INFO
     if _OCR_BACKEND is not None:
         return _OCR_ENGINE
 
     try:
         from rapidocr_onnxruntime import RapidOCR
 
-        _OCR_ENGINE = RapidOCR()
+        _OCR_ENGINE = RapidOCR(**_build_rapidocr_kwargs())
         _OCR_BACKEND = "rapidocr"
         _OCR_IMPORT_ERROR = None
     except Exception as rapidocr_exc:  # pragma: no cover - depends on local runtime
@@ -35,6 +57,7 @@ def _load_ocr_engine():
         except Exception as winrt_exc:  # pragma: no cover - depends on local runtime
             _OCR_ENGINE = None
             _OCR_BACKEND = "none"
+            _OCR_MODEL_INFO = None
             _OCR_IMPORT_ERROR = RuntimeError(
                 f"RapidOCR unavailable: {rapidocr_exc}; Windows OCR unavailable: {winrt_exc}"
             )
@@ -43,10 +66,16 @@ def _load_ocr_engine():
 
 def get_ocr_runtime_status() -> dict[str, Any]:
     engine = _load_ocr_engine()
+    model_info = _OCR_MODEL_INFO or describe_ocr_model_setup(detect_project_root())
     return {
         "available": engine is not None,
         "backend": _OCR_BACKEND,
         "error": "" if _OCR_IMPORT_ERROR is None else str(_OCR_IMPORT_ERROR),
+        "model_message": str(model_info["message"]),
+        "custom_model_count": int(model_info["custom_model_count"]),
+        "custom_model_complete": bool(model_info["custom_model_complete"]),
+        "model_slot_dir": str(model_info["slot_dir"]),
+        "has_invalid_custom_model": bool(model_info["has_invalid_custom_model"]),
     }
 
 def fix_english_spacing(text):

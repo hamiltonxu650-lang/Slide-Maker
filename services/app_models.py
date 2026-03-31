@@ -52,6 +52,38 @@ TEXT_MODE_CHOICES = (
 )
 
 PDF_DPI_CHOICES = (150, 200, 300)
+LAMA_MODEL_FILENAME = "big-lama.pt"
+LAMA_MODEL_ENV_VARS = (
+    "SLIDE_MAKER_LAMA_MODEL",
+    "LAMA_MODEL",
+)
+OCR_MODEL_FILENAMES = {
+    "det": "ch_PP-OCRv4_det_infer.onnx",
+    "cls": "ch_ppocr_mobile_v2.0_cls_infer.onnx",
+    "rec": "ch_PP-OCRv4_rec_infer.onnx",
+}
+OCR_MODEL_ENV_VARS = {
+    "det": "SLIDE_MAKER_OCR_DET_MODEL",
+    "cls": "SLIDE_MAKER_OCR_CLS_MODEL",
+    "rec": "SLIDE_MAKER_OCR_REC_MODEL",
+}
+OCR_MODEL_DOWNLOADS = {
+    "det": {
+        "filename": OCR_MODEL_FILENAMES["det"],
+        "url": "https://www.modelscope.cn/models/RapidAI/RapidOCR/resolve/v3.7.0/onnx/PP-OCRv4/det/ch_PP-OCRv4_det_infer.onnx",
+        "sha256": "d2a7720d45a54257208b1e13e36a8479894cb74155a5efe29462512d42f49da9",
+    },
+    "cls": {
+        "filename": OCR_MODEL_FILENAMES["cls"],
+        "url": "https://www.modelscope.cn/models/RapidAI/RapidOCR/resolve/v3.7.0/onnx/PP-OCRv4/cls/ch_ppocr_mobile_v2.0_cls_infer.onnx",
+        "sha256": "e47acedf663230f8863ff1ab0e64dd2d82b838fceb5957146dab185a89d6215c",
+    },
+    "rec": {
+        "filename": OCR_MODEL_FILENAMES["rec"],
+        "url": "https://www.modelscope.cn/models/RapidAI/RapidOCR/resolve/v3.7.0/onnx/PP-OCRv4/rec/ch_PP-OCRv4_rec_infer.onnx",
+        "sha256": "48fc40f24f6d2a207a2b1091d3437eb3cc3eb6b676dc3ef9c37384005483683b",
+    },
+}
 
 
 @dataclass
@@ -219,6 +251,152 @@ def app_data_root(project_root: Path | None = None) -> Path:
     if project_root is not None:
         return Path(project_root) / ".slide_maker_data"
     return Path.cwd() / ".slide_maker_data"
+
+
+def lama_model_slot(project_root: Path | None = None) -> Path:
+    slot = app_data_root(project_root) / "models" / "lama" / LAMA_MODEL_FILENAME
+    slot.parent.mkdir(parents=True, exist_ok=True)
+    return slot
+
+
+def ocr_model_slot_dir(project_root: Path | None = None) -> Path:
+    slot_dir = app_data_root(project_root) / "models" / "rapidocr" / "onnxruntime"
+    slot_dir.mkdir(parents=True, exist_ok=True)
+    return slot_dir
+
+
+def ocr_model_slot(model_kind: str, project_root: Path | None = None) -> Path:
+    if model_kind not in OCR_MODEL_FILENAMES:
+        raise KeyError(f"Unknown OCR model kind: {model_kind}")
+    return ocr_model_slot_dir(project_root) / OCR_MODEL_FILENAMES[model_kind]
+
+
+def describe_ocr_model_setup(project_root: Path | None = None) -> dict:
+    slot_dir = ocr_model_slot_dir(project_root)
+    models = {}
+    invalid_entries = []
+    custom_model_count = 0
+
+    for model_kind, filename in OCR_MODEL_FILENAMES.items():
+        env_var = OCR_MODEL_ENV_VARS[model_kind]
+        slot_path = ocr_model_slot(model_kind, project_root)
+        info = {
+            "kind": model_kind,
+            "filename": filename,
+            "env_var": env_var,
+            "slot_path": str(slot_path),
+            "path": "",
+            "source": "packaged",
+            "configured": False,
+            "valid": False,
+            "download_url": OCR_MODEL_DOWNLOADS[model_kind]["url"],
+            "sha256": OCR_MODEL_DOWNLOADS[model_kind]["sha256"],
+        }
+
+        raw_path = str(os.getenv(env_var, "") or "").strip()
+        if raw_path:
+            info["configured"] = True
+            candidate = Path(raw_path).expanduser()
+            try:
+                candidate = candidate.resolve()
+            except OSError:
+                pass
+            info["path"] = str(candidate)
+            info["source"] = env_var
+            if candidate.exists() and candidate.is_file():
+                info["valid"] = True
+                custom_model_count += 1
+            else:
+                invalid_entries.append(f"{env_var}: {candidate}")
+        elif slot_path.exists() and slot_path.is_file():
+            info["configured"] = True
+            info["path"] = str(slot_path)
+            info["source"] = "slot"
+            info["valid"] = True
+            custom_model_count += 1
+
+        models[model_kind] = info
+
+    if invalid_entries:
+        message = (
+            "检测到无效的 OCR 自定义模型路径，将回退到 RapidOCR 内置模型："
+            + "；".join(invalid_entries)
+        )
+    elif custom_model_count == len(OCR_MODEL_FILENAMES):
+        message = "OCR 模型已就绪，当前 3 个模型都来自自定义槽位或环境变量。"
+    elif custom_model_count > 0:
+        message = (
+            f"OCR 自定义模型已接入 {custom_model_count}/3，"
+            "未提供的部分仍使用 RapidOCR 内置模型。"
+        )
+    else:
+        message = (
+            f"当前使用 RapidOCR 内置模型。你可以把 3 个 ONNX 文件放到 {slot_dir}，"
+            "或设置 SLIDE_MAKER_OCR_DET_MODEL / SLIDE_MAKER_OCR_CLS_MODEL / "
+            "SLIDE_MAKER_OCR_REC_MODEL。"
+        )
+
+    return {
+        "slot_dir": str(slot_dir),
+        "models": models,
+        "custom_model_count": custom_model_count,
+        "custom_model_complete": custom_model_count == len(OCR_MODEL_FILENAMES),
+        "has_invalid_custom_model": bool(invalid_entries),
+        "invalid_entries": list(invalid_entries),
+        "message": message,
+    }
+
+
+def describe_lama_model_setup(project_root: Path | None = None) -> dict:
+    slot = lama_model_slot(project_root)
+
+    for env_var in LAMA_MODEL_ENV_VARS:
+        raw_path = str(os.getenv(env_var, "") or "").strip()
+        if not raw_path:
+            continue
+
+        candidate = Path(raw_path).expanduser()
+        try:
+            candidate = candidate.resolve()
+        except OSError:
+            pass
+
+        if candidate.exists() and candidate.is_file():
+            return {
+                "available": True,
+                "model_path": str(candidate),
+                "slot_path": str(slot),
+                "source": env_var,
+                "message": f"LaMa 模型已就绪，当前使用 {env_var} 指向的文件。",
+            }
+
+        return {
+            "available": False,
+            "model_path": str(candidate),
+            "slot_path": str(slot),
+            "source": env_var,
+            "message": f"环境变量 {env_var} 指向的模型不存在：{candidate}",
+        }
+
+    if slot.exists() and slot.is_file():
+        return {
+            "available": True,
+            "model_path": str(slot),
+            "slot_path": str(slot),
+            "source": "slot",
+            "message": "LaMa 模型已就绪，当前使用预留模型槽位中的文件。",
+        }
+
+    return {
+        "available": False,
+        "model_path": "",
+        "slot_path": str(slot),
+        "source": "slot",
+        "message": (
+            f"未检测到 LaMa 模型。请将 {LAMA_MODEL_FILENAME} 放到 {slot}，"
+            "或设置环境变量 SLIDE_MAKER_LAMA_MODEL 指向你自己下载的模型文件。"
+        ),
+    }
 
 
 def build_log_path(project_root: Path | None = None) -> Path:
