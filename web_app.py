@@ -38,7 +38,7 @@ app.mount("/static", StaticFiles(directory=str(WEB_DIR / "static")), name="stati
 templates = Jinja2Templates(directory=str(WEB_DIR / "templates"))
 
 
-def _render_home(request: Request, error: str = "", selected_focus: str = PREFERENCE_LAYOUT, note: str = ""):
+def _render_home(request: Request, error: str = "", selected_focus: str = PREFERENCE_LAYOUT, note: str = "", enable_scan: bool = False):
     runtime = describe_runtime_environment()
     return templates.TemplateResponse(
         "index.html",
@@ -46,6 +46,7 @@ def _render_home(request: Request, error: str = "", selected_focus: str = PREFER
             "request": request,
             "error": error,
             "note": note,
+            "enable_scan": enable_scan,
             "selected_focus": selected_focus,
             "focus_options": [
                 {"value": value, "label": FOCUS_LABELS.get(value, value)}
@@ -81,6 +82,18 @@ async def healthz():
     }
 
 
+@app.post("/api/detect-corners")
+async def api_detect_corners(file: UploadFile = File(...)):
+    import cv2, numpy as np
+    from scanner_engine import detect_document_corners
+    content = await file.read()
+    img = cv2.imdecode(np.frombuffer(content, np.uint8), cv2.IMREAD_COLOR)
+    if img is None:
+        return {"status": "error", "message": "Invalid image"}
+    pts = detect_document_corners(img)
+    return {"status": "ok", "points": pts.tolist()}
+
+
 @app.post("/convert")
 async def convert(
     request: Request,
@@ -88,14 +101,16 @@ async def convert(
     file: UploadFile = File(...),
     focus: str = Form(PREFERENCE_LAYOUT),
     note: str = Form(""),
+    enable_scan: bool = Form(False),
+    crop_points: str = Form(""),
 ):
     if focus not in PREFERENCE_CHOICES:
-        return _render_home(request, error="转换重点无效，请重新选择。", selected_focus=PREFERENCE_LAYOUT, note=note)
+        return _render_home(request, error="转换重点无效，请重新选择。", selected_focus=PREFERENCE_LAYOUT, note=note, enable_scan=enable_scan)
 
     try:
         safe_stem, suffix = _safe_upload_name(file.filename)
     except ValueError as exc:
-        return _render_home(request, error=str(exc), selected_focus=focus, note=note)
+        return _render_home(request, error=str(exc), selected_focus=focus, note=note, enable_scan=enable_scan)
 
     temp_root = Path(tempfile.mkdtemp(prefix="slide-maker-web-"))
     input_path = temp_root / f"input{suffix}"
@@ -105,10 +120,25 @@ async def convert(
         with input_path.open("wb") as handle:
             shutil.copyfileobj(file.file, handle)
 
+        if crop_points:
+            import json, cv2, numpy as np
+            from scanner_engine import four_point_transform, enhance_scanned_document
+            try:
+                pts = np.array(json.loads(crop_points), dtype=np.float32)
+                img = cv2.imread(str(input_path))
+                if img is not None:
+                    warped = four_point_transform(img, pts)
+                    enhanced = enhance_scanned_document(warped, mode="color_enhance")
+                    cv2.imwrite(str(input_path), enhanced)
+                    enable_scan = False
+            except Exception as e:
+                print(f"Error parsing crop points: {e}")
+
         settings = AppSettings(
             open_pptx_after_conversion=False,
             open_folder_after_conversion=False,
             diagnostic_logs=True,
+            enable_document_scanner=enable_scan,
         )
         preferences = TaskPreferences(focus=focus, note=note)
         await run_in_threadpool(
@@ -124,7 +154,7 @@ async def convert(
         )
     except Exception as exc:
         shutil.rmtree(temp_root, ignore_errors=True)
-        return _render_home(request, error=f"转换失败：{exc}", selected_focus=focus, note=note)
+        return _render_home(request, error=f"转换失败：{exc}", selected_focus=focus, note=note, enable_scan=enable_scan)
     finally:
         await file.close()
 

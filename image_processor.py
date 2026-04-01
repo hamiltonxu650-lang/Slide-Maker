@@ -20,15 +20,24 @@ def create_smart_text_mask(img, text_data, cleanup_options=None):
     3. Adaptive Threshold (catches anti-aliased halos and shadows that Otsu misses)
     Then heavily dilates to ensure zero residual shadow text.
     """
-    cleanup_options = dict(cleanup_options or {})
-    pad = int(cleanup_options.get("mask_padding", 12))
-    color_tolerance = int(cleanup_options.get("color_tolerance", 150))
-    dilate_kernel = int(cleanup_options.get("dilate_kernel", 9))
-    dilate_iterations = int(cleanup_options.get("dilate_iterations", 2))
-
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     h, w = img.shape[:2]
     mask = np.zeros((h, w), dtype=np.uint8)
+
+    # Scale the mask expansion parameters based on image size (baseline 1920px)
+    scale_factor = max(1.0, max(h, w) / 1920.0)
+    
+    cleanup_options = dict(cleanup_options or {})
+    pad = int(cleanup_options.get("mask_padding", 12 * scale_factor))
+    color_tolerance = int(cleanup_options.get("color_tolerance", 150))
+    
+    # Ensure dilate_kernel is an odd integer
+    base_kernel = cleanup_options.get("dilate_kernel", 9)
+    dilate_kernel = int(base_kernel * scale_factor)
+    if dilate_kernel % 2 == 0:
+        dilate_kernel += 1
+        
+    dilate_iterations = int(cleanup_options.get("dilate_iterations", 2))
     
     for td in text_data:
         box = td['box']
@@ -130,12 +139,34 @@ def inpaint_background(image_path, text_data, output_path, use_ai=True, cleanup_
         )
         if use_ai:
             if oversized_for_lama:
-                _emit_log(
-                    log_cb,
-                    "[*] Skipping LaMa AI for oversized page; using OpenCV Telea directly.",
-                )
-                result = cv2.inpaint(result, full_mask, 7, cv2.INPAINT_TELEA)
-                _emit_log(log_cb, "[*] Background repair backend: OpenCV Telea")
+                _emit_log(log_cb, "[*] Image too large for direct LaMa AI. Using smart downscale-composite LaMa.")
+                try:
+                    # Downscale to max dimension of 2048 to ensure fast and safe LaMa execution
+                    scale = 2048.0 / max(result.shape[0], result.shape[1])
+                    new_w = int(result.shape[1] * scale)
+                    new_h = int(result.shape[0] * scale)
+                    
+                    small_img = cv2.resize(result, (new_w, new_h), interpolation=cv2.INTER_AREA)
+                    small_mask = cv2.resize(full_mask, (new_w, new_h), interpolation=cv2.INTER_NEAREST)
+                    
+                    from inpainting_engine import inpaint_image_lama
+                    from PIL import Image
+                    pil_img = Image.fromarray(cv2.cvtColor(small_img, cv2.COLOR_BGR2RGB))
+                    clean_pil = inpaint_image_lama(pil_img, small_mask)
+                    small_clean = cv2.cvtColor(np.array(clean_pil), cv2.COLOR_RGB2BGR)
+                    
+                    # Upscale back to original size
+                    big_clean = cv2.resize(small_clean, (result.shape[1], result.shape[0]), interpolation=cv2.INTER_CUBIC)
+                    
+                    # Composite: Use LaMa result ONLY where the mask was active, blending the edge softly
+                    float_mask = cv2.GaussianBlur(full_mask, (11, 11), 0).astype(np.float32) / 255.0
+                    float_mask = np.expand_dims(float_mask, axis=2)
+                    
+                    result = (result * (1.0 - float_mask) + big_clean * float_mask).astype(np.uint8)
+                    _emit_log(log_cb, "[*] Background repair backend: LaMa AI (Downscaled composite)")
+                except Exception as e:
+                    _emit_log(log_cb, f"[!] Failed to use downscaled LaMa AI, falling back to Telea: {e}")
+                    result = cv2.inpaint(result, full_mask, 7, cv2.INPAINT_TELEA)
             else:
                 try:
                     from inpainting_engine import inpaint_image_lama

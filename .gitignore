@@ -41,3 +41,15 @@ pptx-project/test_face_*.png
 
 # Local source bundles / archives
 *.zip
+
+# Scan/test generated artifacts
+scan_*.jpg
+scan_*.png
+step*.jpg
+step*.png
+run_test*.py
+run_test*.log
+scan_input_final.png
+IMG_3564*.jpg
+IMG_3564*.HEIC
+web_app.log

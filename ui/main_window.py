@@ -361,7 +361,7 @@ class MainWindow(QtWidgets.QMainWindow):
         content_layout.addWidget(title)
 
         caption = QtWidgets.QLabel(
-            "首版启用 PDF 和图片两条真实流程，其余模块先保留产品位，方便后续继续扩展。"
+            "支持 PDF 和图片转 PPTX，更多格式正在开发中。"
         )
         caption.setObjectName("SectionCaption")
         caption.setWordWrap(True)
@@ -394,12 +394,12 @@ class MainWindow(QtWidgets.QMainWindow):
         self.preference_panel = PreferencePanel()
         content_layout.addWidget(self.preference_panel)
 
-        more_label = QtWidgets.QLabel("后续扩展入口")
+        more_label = QtWidgets.QLabel("即将推出")
         more_label.setStyleSheet("font-size: 20px; font-weight: 800; color: white; margin-top: 10px;")
         content_layout.addWidget(more_label)
 
         more_caption = QtWidgets.QLabel(
-            "这些模块先保留视觉入口，点击后会提示“即将支持”，不会误触发真实转换。"
+            "以下功能正在开发中，敬请期待。"
         )
         more_caption.setObjectName("SectionCaption")
         more_caption.setWordWrap(True)
@@ -482,7 +482,7 @@ class MainWindow(QtWidgets.QMainWindow):
         title.setObjectName("SectionTitle")
         layout.addWidget(title)
 
-        caption = QtWidgets.QLabel("参考主流桌面软件的分组方式，把可真实驱动的设置集中管理。")
+        caption = QtWidgets.QLabel("对各项功能进行个性化配置。")
         caption.setObjectName("SectionCaption")
         caption.setWordWrap(True)
         layout.addWidget(caption)
@@ -516,8 +516,10 @@ class MainWindow(QtWidgets.QMainWindow):
         output_layout.addWidget(self.open_folder_checkbox)
         grid.addWidget(self.output_card, 0, 1)
 
-        self.conversion_card = self._create_setting_card("转换", "这些选项会进入真实转换流程。")
+        self.conversion_card = self._create_setting_card("转换", "调整转换过程中的各项参数。")
         conversion_layout = self.conversion_card.layout()
+        self.enable_scanner_checkbox = QtWidgets.QCheckBox("启用文档边缘扫描裁正 (适合图片斜拍幻灯片)")
+        conversion_layout.addWidget(self.enable_scanner_checkbox)
         self.renderer_combo = QtWidgets.QComboBox()
         self.renderer_combo.addItem("高保真优先", RENDERER_HIGH_FIDELITY)
         self.renderer_combo.addItem("兼容优先", RENDERER_COMPATIBILITY)
@@ -603,17 +605,40 @@ class MainWindow(QtWidgets.QMainWindow):
         title.setObjectName("SectionTitle")
         card_layout.addWidget(title)
 
-        texts = [
-            f"{APP_BRAND} 是围绕现有 OCR、去字与 PPTX 生成引擎搭建的离线桌面版。",
-            "演示模式命令：python ui_app.py --demo",
-            "真实模式命令：python ui_app.py",
-            "推荐样例：test\\Quiz 1.pdf 与 test\\未命名的设计.png",
-        ]
-        for text in texts:
-            label = QtWidgets.QLabel(text)
-            label.setWordWrap(True)
-            label.setObjectName("SectionCaption")
-            card_layout.addWidget(label)
+        desc = QtWidgets.QLabel(
+            f"{APP_BRAND} 是一款离线智能文档转换工具，支持 PDF、图片等格式一键转换为可编辑的 PowerPoint 演示文稿。\n\n"
+            "核心能力包括：OCR 文字识别、AI 背景修复、文档扫描裁正与画质增强、高保真 PPTX 排版生成。"
+        )
+        desc.setWordWrap(True)
+        desc.setObjectName("SectionCaption")
+        card_layout.addWidget(desc)
+
+        card_layout.addSpacing(12)
+
+        credits_title = QtWidgets.QLabel("致谢")
+        credits_title.setStyleSheet("font-size: 16px; font-weight: 700; color: white;")
+        card_layout.addWidget(credits_title)
+
+        credits = QtWidgets.QLabel(
+            "Antigravity  \u00b7  Codex  \u00b7  Doctor Eric"
+        )
+        credits.setWordWrap(True)
+        credits.setObjectName("SectionCaption")
+        card_layout.addWidget(credits)
+
+        card_layout.addSpacing(12)
+
+        contact_title = QtWidgets.QLabel("联系我们")
+        contact_title.setStyleSheet("font-size: 16px; font-weight: 700; color: white;")
+        card_layout.addWidget(contact_title)
+
+        contact = QtWidgets.QLabel(
+            "如果遇到任何问题、Bug 或建议，请联系：\nlewisxu44@outlook.com"
+        )
+        contact.setWordWrap(True)
+        contact.setObjectName("SectionCaption")
+        contact.setTextInteractionFlags(QtCore.Qt.TextInteractionFlag.TextSelectableByMouse)
+        card_layout.addWidget(contact)
 
         layout.addWidget(card)
         layout.addStretch(1)
@@ -652,6 +677,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.output_suffix_edit,
             self.open_pptx_checkbox,
             self.open_folder_checkbox,
+            self.enable_scanner_checkbox,
             self.renderer_combo,
             self.pdf_quality_combo,
             self.cleanup_combo,
@@ -681,6 +707,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.output_suffix_edit.setText(settings.output_suffix)
             self.open_pptx_checkbox.setChecked(settings.open_pptx_after_conversion)
             self.open_folder_checkbox.setChecked(settings.open_folder_after_conversion)
+            self.enable_scanner_checkbox.setChecked(settings.enable_document_scanner)
             self.renderer_combo.setCurrentIndex(max(0, self.renderer_combo.findData(settings.preferred_renderer)))
             self.pdf_quality_combo.setCurrentIndex(max(0, self.pdf_quality_combo.findData(settings.pdf_quality_dpi)))
             self.cleanup_combo.setCurrentIndex(max(0, self.cleanup_combo.findData(settings.background_cleanup)))
@@ -697,6 +724,7 @@ class MainWindow(QtWidgets.QMainWindow):
             output_suffix=sanitize_suffix(self.output_suffix_edit.text()),
             open_pptx_after_conversion=self.open_pptx_checkbox.isChecked(),
             open_folder_after_conversion=self.open_folder_checkbox.isChecked(),
+            enable_document_scanner=self.enable_scanner_checkbox.isChecked(),
             preferred_renderer=self.renderer_combo.currentData(),
             pdf_quality_dpi=int(self.pdf_quality_combo.currentData()),
             background_cleanup=self.cleanup_combo.currentData(),
@@ -761,11 +789,11 @@ class MainWindow(QtWidgets.QMainWindow):
         self.pages.setCurrentIndex(mapping[page_key])
 
     def _show_coming_soon(self, title):
-        self.status_panel.show_notice(f"{title} 模块即将支持，当前版本不会触发真实转换。")
+        self.status_panel.show_notice(f"{title} \u6a21\u5757\u5373\u5c06\u63a8\u51fa\uff0c\u656c\u8bf7\u671f\u5f85\u3002")
         self.sidebar.select_page("home")
 
     def _build_file_filter(self, input_kind):
-        return "PDF 文件 (*.pdf)" if input_kind == "pdf" else "图片文件 (*.png *.jpg *.jpeg)"
+        return "PDF 文件 (*.pdf)" if input_kind == "pdf" else "图片文件 (*.png *.jpg *.jpeg *.heic *.heif)"
 
     def _build_default_output_name(self, input_path: str) -> str:
         suffix = sanitize_suffix(self.app_settings.output_suffix)
@@ -824,17 +852,66 @@ class MainWindow(QtWidgets.QMainWindow):
 
         if self.demo_mode:
             label = "PDF 转 PPTX" if input_kind == "pdf" else "图片转 PPTX"
-            self.status_panel.show_notice(f"{label} 入口在演示模式下只展示界面，不执行真实转换。")
+            self.status_panel.show_notice(f"{label} 功能在演示模式下不可用。")
             return
 
         input_path, _ = QtWidgets.QFileDialog.getOpenFileName(
             self,
             "选择输入文件",
-            str(PROJECT_ROOT / "test"),
+            str(Path.home()),
             self._build_file_filter(input_kind),
         )
         if not input_path:
             return
+
+        if getattr(self.app_settings, "enable_document_scanner", False) and input_kind == "image":
+            import cv2
+            import numpy as np
+            import subprocess
+            from ui.scanner_dialog import ScannerDialog
+            from scanner_engine import detect_document_corners, four_point_transform, enhance_scanned_document
+
+            actual_input = input_path
+            # Auto-convert HEIC to JPG using macOS sips
+            if input_path.lower().endswith((".heic", ".heif")):
+                import tempfile
+                fd, converted_path = tempfile.mkstemp(suffix=".jpg", prefix="slide-maker-heic-")
+                os.close(fd)
+                try:
+                    subprocess.run(
+                        ["sips", "-s", "format", "jpeg", input_path, "--out", converted_path],
+                        check=True, capture_output=True,
+                    )
+                    actual_input = converted_path
+                except Exception:
+                    pass  # fallback to trying cv2 directly
+
+            img_bgr = cv2.imdecode(np.fromfile(actual_input, dtype=np.uint8), cv2.IMREAD_COLOR)
+            if img_bgr is not None:
+                initial_pts = detect_document_corners(img_bgr)
+                dialog = ScannerDialog(img_bgr, initial_pts, self)
+                if dialog.exec() == QtWidgets.QDialog.DialogCode.Accepted:
+                    final_pts = dialog.get_points()
+                    warped = four_point_transform(img_bgr, final_pts)
+                    # Apply CamScanner-style enhancement
+                    enhanced = enhance_scanned_document(warped, mode="color_enhance")
+
+                    import tempfile
+                    fd, tmp_path = tempfile.mkstemp(suffix=".png", prefix="slide-maker-scan-")
+                    os.close(fd)
+                    cv2.imencode(".png", enhanced)[1].tofile(tmp_path)
+                    input_path = tmp_path
+
+                    original_scan = self.app_settings.enable_document_scanner
+                    self.app_settings.enable_document_scanner = False
+                    output_path = self._choose_output_path(input_path)
+
+                    if output_path:
+                        preferences = self.preference_panel.get_preferences()
+                        self._launch_worker(input_path, output_path, input_kind, preferences)
+
+                    self.app_settings.enable_document_scanner = original_scan
+                    return
 
         output_path = self._choose_output_path(input_path)
         if not output_path:

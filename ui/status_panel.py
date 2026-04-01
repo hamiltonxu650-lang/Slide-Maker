@@ -97,7 +97,7 @@ class StatusPanel(QtWidgets.QFrame):
         caption.setWordWrap(True)
         layout.addWidget(caption)
 
-        self.demo_banner = QtWidgets.QLabel("演示模式已开启：可以预览界面，但不会执行真实转换。")
+        self.demo_banner = QtWidgets.QLabel("演示模式已开启：可以预览界面，转换功能暂不可用。")
         self.demo_banner.setObjectName("InlineBanner")
         self.demo_banner.setWordWrap(True)
         self.demo_banner.hide()

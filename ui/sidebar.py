@@ -42,7 +42,7 @@ class Sidebar(QtWidgets.QFrame):
 
         layout.addStretch(1)
 
-        footer = QtWidgets.QLabel("当前已启用：PDF 转 PPTX、图片转 PPTX")
+        footer = QtWidgets.QLabel("PDF \u8f6c PPTX \u00b7 \u56fe\u7247\u8f6c PPTX \u00b7 \u66f4\u591a\u5373\u5c06\u63a8\u51fa")
         footer.setObjectName("SidebarCaption")
         footer.setWordWrap(True)
         layout.addWidget(footer)

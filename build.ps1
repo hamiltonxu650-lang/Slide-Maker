@@ -1,147 +1,55 @@
-# Build Script for Slide Maker
-# Directory mode remains the default so OCR models and Node runtime stay readable.
+# Slide Maker - Windows Build Pipeline
+# ----------------------------------
+# 1. Runs PyInstaller to create a standard 'onedir' bundle.
+# 2. Runs Inno Setup to create a professional installer (setup.exe).
 
 $python = ".\venv\Scripts\python.exe"
-
 if (-not (Test-Path $python)) {
-    throw "Python not found in D:\maker\venv. Please create the local virtual environment first."
+    Write-Host "[!] Virtual environment not found at .\venv\Scripts\python.exe" -ForegroundColor Red
+    Write-Host "[*] Please create it first: python -m venv venv && .\venv\Scripts\pip install -r requirements.txt"
+    exit 1
 }
 
-$arguments = @(
-    '-y'
-    '--name=Slide_Maker'
-    '--add-data=pptx-project\layout_engine.js;pptx-project'
-    '--add-data=pptx-project\node_modules;pptx-project\node_modules'
-    '--add-data=pptx-project\package.json;pptx-project'
-    '--add-data=pptx-project\package-lock.json;pptx-project'
-    '--add-data=assets;assets'
-    '--icon=assets\slide_maker_icon.ico'
-    '--collect-all=simple_lama_inpainting'
-    '--collect-submodules=rapidocr_onnxruntime'
-    '--collect-data=rapidocr_onnxruntime'
-    '--collect-binaries=onnxruntime'
-    '--collect-submodules=onnxruntime.capi'
-    '--collect-submodules=torch'
-    '--collect-data=torch'
-    '--collect-binaries=torch'
-    '--collect-submodules=winrt'
-    '--collect-binaries=winrt'
-    '--collect-submodules=pymupdf'
-    '--collect-binaries=pymupdf'
-    '--collect-submodules=fitz'
-    '--hidden-import=onnxruntime'
-    '--hidden-import=onnxruntime.capi.onnxruntime_pybind11_state'
-    '--hidden-import=pymupdf'
-    '--hidden-import=fitz'
-    '--hidden-import=wordninja'
-    '--hidden-import=winrt_ocr_engine'
-    '--hidden-import=winrt.windows.foundation'
-    '--hidden-import=winrt.windows.foundation.collections'
-    '--hidden-import=winrt.windows.media.ocr'
-    '--hidden-import=winrt.windows.graphics.imaging'
-    '--hidden-import=winrt.windows.storage'
-    '--hidden-import=winrt.windows.storage.streams'
-    '--exclude-module=altair'
-    '--exclude-module=diffusers'
-    '--exclude-module=gradio'
-    '--exclude-module=matplotlib'
-    '--exclude-module=pandas'
-    '--exclude-module=paddle'
-    '--exclude-module=paddleocr'
-    '--exclude-module=scipy'
-    '--exclude-module=tensorflow'
-    '--exclude-module=torchaudio'
-    '--exclude-module=timm'
-    '--exclude-module=transformers'
-    '--exclude-module=torchvision'
-    '--exclude-module=uvicorn'
-    '--exclude-module=onnxruntime.backend'
-    '--exclude-module=onnxruntime.datasets'
-    '--exclude-module=onnxruntime.quantization'
-    '--exclude-module=onnxruntime.tools'
-    '--exclude-module=onnxruntime.transformers'
-    '--windowed'
-)
+# 1. Clean previous builds
+Write-Host "[*] Cleaning previous build artifacts..." -ForegroundColor Cyan
+if (Test-Path "dist") { Remove-Item "dist" -Recurse -Force }
+if (Test-Path "build") { Remove-Item "build" -Recurse -Force }
+if (Test-Path "Output") { Remove-Item "Output" -Recurse -Force }
 
-if (Test-Path ".\runtime\node.exe") {
-    $arguments += '--add-binary=runtime\node.exe;runtime'
-}
+# 2. Run PyInstaller
+Write-Host "[*] Phase 1: Building Application Bundle with PyInstaller..." -ForegroundColor Green
+& $python -m PyInstaller --clean Slide_Maker.spec
 
-foreach ($vcRuntime in @(
-    'C:\Windows\System32\msvcp140.dll',
-    'C:\Windows\System32\msvcp140_1.dll',
-    'C:\Windows\System32\msvcp140_2.dll',
-    'C:\Windows\System32\msvcp140_atomic_wait.dll'
-)) {
-    if (Test-Path $vcRuntime) {
-        $arguments += "--add-binary=$vcRuntime;."
-    }
-}
-
-$arguments += 'ui_app.py'
-
-$allArgs = $arguments | ConvertTo-Json -Compress
-$script = @"
-import json
-import sys
-from PyInstaller.__main__ import run
-
-sys.setrecursionlimit(sys.getrecursionlimit() * 5)
-run(json.loads(r'''$allArgs'''))
-"@
-
-$script | & $python -
 if ($LASTEXITCODE -ne 0) {
+    Write-Host "[!] PyInstaller build failed." -ForegroundColor Red
     exit $LASTEXITCODE
 }
 
-$basePython = (& $python -c "import sys; print(sys.base_prefix)").Trim()
-$distRoot = Join-Path (Get-Location) "dist\Slide_Maker"
-$portablePythonRoot = Join-Path $distRoot "portable_python"
-$portableSitePackages = Join-Path $distRoot "portable_site_packages"
-$portableAppRoot = Join-Path $distRoot "portable_app"
-$venvRoot = Split-Path (Split-Path $python -Parent) -Parent
+# 3. Compile Installer (Inno Setup)
+Write-Host "[*] Phase 2: Compiling Windows Installer (Inno Setup)..." -ForegroundColor Green
 
-foreach ($path in @($portablePythonRoot, $portableSitePackages, $portableAppRoot)) {
-    if (Test-Path $path) {
-        Remove-Item $path -Recurse -Force
+# Try to find ISCC.exe in common locations
+$iscc = "iscc.exe"
+$programFiles = ${env:ProgramFiles(x86)}
+if (-not (Get-Command $iscc -ErrorAction SilentlyContinue)) {
+    $potentialPath = Join-Path $programFiles "Inno Setup 6\ISCC.exe"
+    if (Test-Path $potentialPath) {
+        $iscc = $potentialPath
+    } else {
+        Write-Host "[!] ISCC.exe not found. Please install Inno Setup 6 or add it to your PATH." -ForegroundColor Yellow
+        Write-Host "[*] Skipping installer compilation. The portable app is available in dist\Slide-Maker."
+        exit 0
     }
 }
 
-New-Item -ItemType Directory -Force -Path $portablePythonRoot | Out-Null
-New-Item -ItemType Directory -Force -Path $portableSitePackages | Out-Null
-New-Item -ItemType Directory -Force -Path $portableAppRoot | Out-Null
+& $iscc Slide_Maker_Setup.iss
 
-foreach ($item in @('python.exe', 'pythonw.exe', 'python310.dll', 'python3.dll', 'python310.zip', 'DLLs', 'Lib')) {
-    $source = Join-Path $basePython $item
-    if (Test-Path $source) {
-        Copy-Item $source -Destination $portablePythonRoot -Recurse -Force
-    }
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "[!] Inno Setup compilation failed." -ForegroundColor Red
+    exit $LASTEXITCODE
 }
 
-$sitePackagesSource = Join-Path $venvRoot 'Lib\site-packages'
-Copy-Item $sitePackagesSource\* -Destination $portableSitePackages -Recurse -Force
+Write-Host "`n[+++] BUILD COMPLETE [+++]" -ForegroundColor White -BackgroundColor DarkGreen
+Write-Host "[*] Installer generated: Output\Slide-Maker-Setup.exe" -ForegroundColor Cyan
+Write-Host "[*] Portable version: dist\Slide-Maker\" -ForegroundColor Cyan
 
-foreach ($item in @(
-    'ui_app.py',
-    'gui_conversion_runner.py',
-    'main.py',
-    'extract_pdf.py',
-    'image_processor.py',
-    'inpainting_engine.py',
-    'ocr_engine.py',
-    'winrt_ocr_engine.py',
-    'ppt_generator.py',
-    'utils.py',
-    'open_ppt_helper.py',
-    'services',
-    'ui',
-    'assets',
-    'runtime',
-    'pptx-project'
-)) {
-    $source = Join-Path (Get-Location) $item
-    if (Test-Path $source) {
-        Copy-Item $source -Destination $portableAppRoot -Recurse -Force
-    }
-}

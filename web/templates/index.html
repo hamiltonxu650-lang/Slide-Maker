@@ -57,9 +57,168 @@
           <div class="alert">{{ error }}</div>
           {% endif %}
 
-          <button type="submit">开始转换并下载 PPTX</button>
+          <label class="field" style="flex-direction: row; align-items: center; gap: 8px;">
+            <input type="checkbox" name="enable_scan" value="true" {% if enable_scan %}checked{% endif %} />
+            <span>启用文档边缘扫描裁正 (适合随手斜拍)</span>
+          </label>
+
+          <button type="submit" id="submit-btn">开始转换并下载 PPTX</button>
         </form>
       </section>
+
+      <footer style="text-align: center; padding: 24px 0 12px; color: #888; font-size: 13px; line-height: 1.8;">
+        <p>Slide Maker &mdash; Powered by Antigravity &middot; Codex &middot; Doctor Eric</p>
+        <p>问题、Bug 或建议请联系：<a href="mailto:lewisxu44@outlook.com" style="color: #7eb8ff;">lewisxu44@outlook.com</a></p>
+      </footer>
     </main>
+
+    <!-- Modal for interactive crop -->
+    <div id="crop-modal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 1000; padding: 20px; flex-direction: column; align-items: center; justify-content: center;">
+      <p style="color: #ccc; font-size: 16px; margin-bottom: 12px;">拖动四个控制点，使其贴合文档真实边缘，系统将利用透视变换裁正。</p>
+      <div style="width: 100%; max-height: 80vh; overflow: hidden; display: flex; justify-content: center; align-items: center; position: relative;">
+        <canvas id="crop-canvas" style="max-width: 100%; max-height: 80vh; border: 1px solid #555; cursor: crosshair;"></canvas>
+      </div>
+      <div style="margin-top: 20px; display: flex; gap: 16px;">
+         <button type="button" id="crop-skip" style="background: transparent; color: white; border: 1px solid white;">跳过裁正</button>
+         <button type="button" id="crop-confirm" style="background: #0078D7; color: white; font-weight: bold;">确认裁正</button>
+      </div>
+    </div>
+
+    <script>
+    document.addEventListener("DOMContentLoaded", () => {
+        const mainForm = document.querySelector('form');
+        const enableScanCB = document.querySelector('input[name="enable_scan"]');
+        const fileInput = document.querySelector('input[name="file"]');
+        const submitBtn = document.getElementById('submit-btn');
+        
+        const cropPointsInput = document.createElement('input');
+        cropPointsInput.type = "hidden";
+        cropPointsInput.name = "crop_points";
+        mainForm.appendChild(cropPointsInput);
+
+        const modal = document.getElementById('crop-modal');
+        const canvas = document.getElementById('crop-canvas');
+        const ctx = canvas.getContext('2d');
+        
+        let currentImage = null;
+        let currentPoints = [];
+        let draggedPointIdx = -1;
+        let originalSubmitText = submitBtn.textContent;
+
+        function draw() {
+            if (!currentImage) return;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(currentImage, 0, 0, canvas.width, canvas.height);
+
+            ctx.strokeStyle = "rgba(0, 150, 255, 1)";
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(currentPoints[0][0], currentPoints[0][1]);
+            for(let i=1; i<4; i++) ctx.lineTo(currentPoints[i][0], currentPoints[i][1]);
+            ctx.closePath();
+            ctx.stroke();
+            ctx.fillStyle = "rgba(0, 150, 255, 0.15)";
+            ctx.fill();
+
+            // Handle radius responsive to image size
+            let handleRadius = Math.max(15, Math.min(canvas.width, canvas.height) * 0.02);
+            
+            currentPoints.forEach(pt => {
+                ctx.beginPath();
+                ctx.arc(pt[0], pt[1], handleRadius, 0, Math.PI * 2);
+                ctx.fillStyle = "rgba(0, 150, 255, 0.8)";
+                ctx.fill();
+                ctx.strokeStyle = "white";
+                ctx.lineWidth = 2;
+                ctx.stroke();
+            });
+        }
+
+        function initCanvas(imgDataURL, points) {
+            currentImage = new Image();
+            currentImage.onload = () => {
+                canvas.width = currentImage.naturalWidth;
+                canvas.height = currentImage.naturalHeight;
+                currentPoints = points;
+                modal.style.display = "flex";
+                draw();
+                submitBtn.textContent = originalSubmitText;
+                submitBtn.disabled = false;
+            };
+            currentImage.src = imgDataURL;
+        }
+
+        canvas.addEventListener('mousedown', e => {
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            const x = (e.clientX - rect.left) * scaleX;
+            const y = (e.clientY - rect.top) * scaleY;
+            
+            let handleRadius = Math.max(15, Math.min(canvas.width, canvas.height) * 0.02);
+            // Allow larger hit area for easier grabbing
+            draggedPointIdx = currentPoints.findIndex(pt => Math.hypot(pt[0]-x, pt[1]-y) < handleRadius * 3);
+        });
+        
+        window.addEventListener('mousemove', e => {
+            if (draggedPointIdx !== -1) {
+                const rect = canvas.getBoundingClientRect();
+                const scaleX = canvas.width / rect.width;
+                const scaleY = canvas.height / rect.height;
+                currentPoints[draggedPointIdx] = [
+                    Math.max(0, Math.min(canvas.width, (e.clientX - rect.left) * scaleX)),
+                    Math.max(0, Math.min(canvas.height, (e.clientY - rect.top) * scaleY))
+                ];
+                draw();
+            }
+        });
+        
+        window.addEventListener('mouseup', () => draggedPointIdx = -1);
+
+        document.getElementById('crop-confirm').addEventListener('click', () => {
+            cropPointsInput.value = JSON.stringify(currentPoints);
+            modal.style.display = 'none';
+            mainForm.submit();
+        });
+        
+        document.getElementById('crop-skip').addEventListener('click', () => {
+            cropPointsInput.value = "";
+            modal.style.display = 'none';
+            mainForm.submit();
+        });
+
+        mainForm.addEventListener('submit', async (e) => {
+            if (cropPointsInput.value) return; // passed modal logic
+            if (!enableScanCB || !enableScanCB.checked || !fileInput.files.length) return;
+            
+            const f = fileInput.files[0];
+            if (f.type === "application/pdf") return;
+            
+            // Intercept form submission!
+            e.preventDefault();
+            
+            submitBtn.textContent = "边缘计算中...";
+            submitBtn.disabled = true;
+
+            const formData = new FormData();
+            formData.append("file", f);
+            try {
+                const res = await fetch("/api/detect-corners", {method: "POST", body: formData});
+                const data = await res.json();
+                if (data.status === "ok") {
+                    const reader = new FileReader();
+                    reader.onload = (evt) => initCanvas(evt.target.result, data.points);
+                    reader.readAsDataURL(f);
+                } else {
+                    alert("检测边缘失败，将进行默认转换");
+                    mainForm.submit();
+                }
+            } catch(err) {
+                console.error(err);
+                mainForm.submit();
+            }
+        });
+    });
+    </script>
   </body>
 </html>

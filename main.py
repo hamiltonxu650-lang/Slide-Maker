@@ -110,7 +110,6 @@ def process_images_to_ppt(
         )
 
     ppt = PPTGenerator()
-    first_image = True
     all_slides = []
 
     for i, img_path in enumerate(images):
@@ -123,16 +122,20 @@ def process_images_to_ppt(
         cv_img = cv2.imdecode(np.fromfile(img_path, dtype=np.uint8), cv2.IMREAD_COLOR)
         if cv_img is None:
             raise FileNotFoundError(f"Cannot read image: {img_path}")
+            
+        if options.get("enable_document_scanner"):
+            from scanner_engine import scan_document
+            cv_img = scan_document(cv_img, log_cb=log_cb)
+
         img_h, img_w = cv_img.shape[:2]
 
-        if first_image:
-            canvas_scale = ppt.set_slide_dimensions(img_w, img_h, dpi=canvas_dpi)
-            if canvas_scale < 1.0:
-                _emit_log(
-                    log_cb,
-                    f"[*] Slide canvas exceeded PowerPoint size limits; scaled to {canvas_scale:.4f}x.",
-                )
-            first_image = False
+        # Set slide dimensions for every slide to match its actual image
+        canvas_scale = ppt.set_slide_dimensions(img_w, img_h, dpi=canvas_dpi)
+        if canvas_scale < 1.0:
+            _emit_log(
+                log_cb,
+                f"[*] Slide canvas exceeded PowerPoint size limits; scaled to {canvas_scale:.4f}x.",
+            )
 
         ocr_input_path, ocr_scale_factor = _build_ocr_input(
             img_path,

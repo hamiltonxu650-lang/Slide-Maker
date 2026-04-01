@@ -99,6 +99,7 @@ class AppSettings:
     background_cleanup: str = BACKGROUND_STANDARD
     text_mode: str = TEXT_MODE_FAITHFUL
     diagnostic_logs: bool = True
+    enable_document_scanner: bool = False
 
     @classmethod
     def from_dict(cls, data: dict | None) -> "AppSettings":
@@ -170,6 +171,7 @@ def map_note_keywords(note: str) -> list[str]:
         "clarity": ("清晰", "清楚", "可读", "文字", "字体", "模糊", "readable", "clear"),
         "cleanup": ("背景", "去字", "干净", "残影", "水印", "遮罩", "background", "clean"),
         "speed": ("速度", "更快", "快速", "省时", "fast", "speed"),
+        "scan": ("扫描", "裁正", "边框", "歪", "梯形", "透视", "矫正", "scan"),
     }
     tags = []
     for tag, keywords in keyword_groups.items():
@@ -241,6 +243,7 @@ def build_conversion_options(settings: AppSettings | None, preferences: TaskPref
         "preference_focus": preferences.focus,
         "preference_tags": list(preferences.mapped_tags),
         "user_note": preferences.note,
+        "enable_document_scanner": bool(settings.enable_document_scanner or ("scan" in preferences.mapped_tags)),
     }
 
 
