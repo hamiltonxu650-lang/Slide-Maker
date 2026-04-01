@@ -10,18 +10,10 @@ block_cipher = None
 
 # 1. Prepare Data and Binaries
 datas = [
-    ('pptx-project/layout_engine.js', 'pptx-project'),
-    ('pptx-project/node_modules', 'pptx-project/node_modules'),
-    ('pptx-project/package.json', 'pptx-project'),
-    ('pptx-project/package-lock.json', 'pptx-project'),
-    ('assets', 'assets')
+    ('assets', 'assets'),
 ]
 
 binaries = []
-
-# Include Node runtime if present locally
-if os.path.exists('runtime/node.exe'):
-    binaries.append(('runtime/node.exe', 'runtime'))
 
 # Optional: Bundle VC Runtime DLLs if found in common System32 locations 
 # (This helps on barebones Windows systems that lack redistributables)

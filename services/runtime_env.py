@@ -101,15 +101,22 @@ def preload_runtime_libraries() -> dict[str, list[str]]:
     failed: list[str] = []
 
     preferred = [
+        ("", "msvcp140.dll"),
+        ("", "msvcp140_1.dll"),
+        ("", "msvcp140_2.dll"),
+        ("", "msvcp140_atomic_wait.dll"),
         ("", "vcruntime140.dll"),
         ("", "vcruntime140_1.dll"),
         ("torch/lib", "libiomp5md.dll"),
+        ("torch/lib", "libiompstubs5md.dll"),
+        ("torch/lib", "torch.dll"),
+        ("torch/lib", "torch_global_deps.dll"),
         ("torch/lib", "shm.dll"),
         ("torch/lib", "c10.dll"),
         ("torch/lib", "torch_cpu.dll"),
         ("torch/lib", "torch_python.dll"),
-        ("onnxruntime/capi", "onnxruntime.dll"),
         ("onnxruntime/capi", "onnxruntime_providers_shared.dll"),
+        ("onnxruntime/capi", "onnxruntime.dll"),
     ]
 
     seen = set()
@@ -140,6 +147,10 @@ def preload_runtime_libraries() -> dict[str, list[str]]:
 
 
 def detect_project_root() -> Path:
+    if getattr(sys, "frozen", False):
+        portable_root = Path(sys.executable).resolve().parent / "portable_app"
+        if portable_root.exists():
+            return portable_root
     for root in get_runtime_roots():
         if (root / "pptx-project").exists():
             return root
@@ -186,10 +197,6 @@ def find_node_executable(project_root: Path | None = None):
     project_root = project_root or detect_project_root()
     candidates = []
 
-    node_on_path = shutil.which("node")
-    if node_on_path:
-        candidates.append(Path(node_on_path))
-
     for root in get_runtime_roots():
         if os.name == "nt":
             candidates.extend(
@@ -233,6 +240,10 @@ def find_node_executable(project_root: Path | None = None):
                 Path(os.path.expandvars(r"%LOCALAPPDATA%\bin\node.exe")),
             ]
         )
+
+    node_on_path = shutil.which("node")
+    if node_on_path:
+        candidates.append(Path(node_on_path))
 
     for candidate in candidates:
         if _is_runnable_node_candidate(candidate):

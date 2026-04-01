@@ -2,7 +2,7 @@
 ; This script bundles the PyInstaller 'dist/Slide-Maker' folder into a setup.exe
 
 #define MyAppName "Slide Maker"
-#define MyAppVersion "1.0.0"
+#define MyAppVersion "0.3.0"
 #define MyAppPublisher "lewisxu"
 #define MyAppURL "https://github.com/hamiltonxu650-lang/Slide-Maker"
 #define MyAppExeName "SlideMaker.exe"
@@ -22,7 +22,7 @@ DisableProgramGroupPage=yes
 ; Uncomment the following line to run in non administrative install mode (install for current user only.)
 PrivilegesRequired=lowest
 OutputDir=Output
-OutputBaseFilename=Slide-Maker-Setup
+OutputBaseFilename=Slide-Maker-Setup-v{#MyAppVersion}
 SetupIconFile=assets\slide_maker_icon.ico
 Compression=lzma
 SolidCompression=yes

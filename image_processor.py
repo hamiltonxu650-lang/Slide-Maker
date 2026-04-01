@@ -125,67 +125,60 @@ def inpaint_background(image_path, text_data, output_path, use_ai=True, cleanup_
     img = cv2.imdecode(np.fromfile(image_path, dtype=np.uint8), cv2.IMREAD_COLOR)
     if img is None:
         raise FileNotFoundError(f"Cannot read image: {image_path}")
-        
+
     result = img.copy()
 
     # Generate the highly precise text stroke mask for the entire image
     full_mask = create_smart_text_mask(result, text_data, cleanup_options=cleanup_options)
-    
+
+    if not use_ai:
+        raise RuntimeError("OpenCV background repair has been removed. LaMa AI is now required.")
+
     # Run LaMa on the entire mask to guarantee perfect erasure everywhere
     if np.any(full_mask > 0):
         oversized_for_lama = (
             result.shape[0] * result.shape[1] > LAMA_MAX_PIXELS
             or max(result.shape[0], result.shape[1]) > LAMA_MAX_DIMENSION
         )
-        if use_ai:
-            if oversized_for_lama:
-                _emit_log(log_cb, "[*] Image too large for direct LaMa AI. Using smart downscale-composite LaMa.")
-                try:
-                    # Downscale to max dimension of 2048 to ensure fast and safe LaMa execution
-                    scale = 2048.0 / max(result.shape[0], result.shape[1])
-                    new_w = int(result.shape[1] * scale)
-                    new_h = int(result.shape[0] * scale)
-                    
-                    small_img = cv2.resize(result, (new_w, new_h), interpolation=cv2.INTER_AREA)
-                    small_mask = cv2.resize(full_mask, (new_w, new_h), interpolation=cv2.INTER_NEAREST)
-                    
-                    from inpainting_engine import inpaint_image_lama
-                    from PIL import Image
-                    pil_img = Image.fromarray(cv2.cvtColor(small_img, cv2.COLOR_BGR2RGB))
-                    clean_pil = inpaint_image_lama(pil_img, small_mask)
-                    small_clean = cv2.cvtColor(np.array(clean_pil), cv2.COLOR_RGB2BGR)
-                    
-                    # Upscale back to original size
-                    big_clean = cv2.resize(small_clean, (result.shape[1], result.shape[0]), interpolation=cv2.INTER_CUBIC)
-                    
-                    # Composite: Use LaMa result ONLY where the mask was active, blending the edge softly
-                    float_mask = cv2.GaussianBlur(full_mask, (11, 11), 0).astype(np.float32) / 255.0
-                    float_mask = np.expand_dims(float_mask, axis=2)
-                    
-                    result = (result * (1.0 - float_mask) + big_clean * float_mask).astype(np.uint8)
-                    _emit_log(log_cb, "[*] Background repair backend: LaMa AI (Downscaled composite)")
-                except Exception as e:
-                    _emit_log(log_cb, f"[!] Failed to use downscaled LaMa AI, falling back to Telea: {e}")
-                    result = cv2.inpaint(result, full_mask, 7, cv2.INPAINT_TELEA)
-            else:
-                try:
-                    from inpainting_engine import inpaint_image_lama
-                    from PIL import Image
-                    pil_img = Image.fromarray(cv2.cvtColor(result, cv2.COLOR_BGR2RGB))
-                    clean_pil = inpaint_image_lama(pil_img, full_mask)
-                    result = cv2.cvtColor(np.array(clean_pil), cv2.COLOR_RGB2BGR)
-                    _emit_log(log_cb, "[*] Background repair backend: LaMa AI")
-                except Exception as e:
-                    _emit_log(log_cb, f"[!] Failed to use LaMa AI, falling back to OpenCV inpaint: {e}")
-                    result = cv2.inpaint(result, full_mask, 7, cv2.INPAINT_TELEA)
-                    _emit_log(log_cb, "[*] Background repair backend: OpenCV Telea")
+        from inpainting_engine import inpaint_image_lama
+        from PIL import Image
+
+        if oversized_for_lama:
+            _emit_log(log_cb, "[*] Image too large for direct LaMa AI. Using smart downscale-composite LaMa.")
+            try:
+                # Downscale to max dimension of 2048 to keep LaMa stable on large pages.
+                scale = 2048.0 / max(result.shape[0], result.shape[1])
+                new_w = max(1, int(round(result.shape[1] * scale)))
+                new_h = max(1, int(round(result.shape[0] * scale)))
+
+                small_img = cv2.resize(result, (new_w, new_h), interpolation=cv2.INTER_AREA)
+                small_mask = cv2.resize(full_mask, (new_w, new_h), interpolation=cv2.INTER_NEAREST)
+
+                pil_img = Image.fromarray(cv2.cvtColor(small_img, cv2.COLOR_BGR2RGB))
+                clean_pil = inpaint_image_lama(pil_img, small_mask)
+                small_clean = cv2.cvtColor(np.array(clean_pil), cv2.COLOR_RGB2BGR)
+
+                # Upscale back to original size and blend only on the masked region.
+                big_clean = cv2.resize(small_clean, (result.shape[1], result.shape[0]), interpolation=cv2.INTER_CUBIC)
+                float_mask = cv2.GaussianBlur(full_mask, (11, 11), 0).astype(np.float32) / 255.0
+                float_mask = np.expand_dims(float_mask, axis=2)
+
+                result = (result * (1.0 - float_mask) + big_clean * float_mask).astype(np.uint8)
+                _emit_log(log_cb, "[*] Background repair backend: LaMa AI (Downscaled composite)")
+            except Exception as exc:
+                raise RuntimeError(f"LaMa AI failed during downscaled background repair: {exc}") from exc
         else:
-            result = cv2.inpaint(result, full_mask, 7, cv2.INPAINT_TELEA)
-            _emit_log(log_cb, "[*] Background repair backend: OpenCV Telea")
+            try:
+                pil_img = Image.fromarray(cv2.cvtColor(result, cv2.COLOR_BGR2RGB))
+                clean_pil = inpaint_image_lama(pil_img, full_mask)
+                result = cv2.cvtColor(np.array(clean_pil), cv2.COLOR_RGB2BGR)
+                _emit_log(log_cb, "[*] Background repair backend: LaMa AI")
+            except Exception as exc:
+                raise RuntimeError(f"LaMa AI failed during background repair: {exc}") from exc
 
     cv2.imencode('.png', result)[1].tofile(output_path)
     _emit_log(log_cb, f"Clean background saved to: {output_path}")
-    
+
     return output_path
 
 if __name__ == "__main__":

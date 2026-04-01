@@ -40,7 +40,9 @@ def _append_gui_log(message: str) -> None:
 def main():
     args = build_parser().parse_args()
     dll_dirs = configure_runtime_dll_search_paths()
-    preload_info = preload_runtime_libraries()
+    preload_info = {"loaded": [], "failed": []}
+    if not args.worker:
+        preload_info = preload_runtime_libraries()
 
     if args.worker:
         bootstrap_log = app_data_root() / "logs" / "worker-bootstrap.log"

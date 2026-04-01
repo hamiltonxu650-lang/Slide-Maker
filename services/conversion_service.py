@@ -135,11 +135,7 @@ def run_conversion(
     logger.emit(f"[*] Preference focus: {options['preference_focus']}")
     if not lama_info["available"]:
         logger.emit(f"[!] {lama_info['message']}")
-        fallback_messages.append(
-            f"未检测到 LaMa 模型，背景修复将回退到 OpenCV。"
-            f"请将 big-lama.pt 放到 {lama_info['slot_path']}，"
-            "或设置环境变量 SLIDE_MAKER_LAMA_MODEL。"
-        )
+        raise ConversionError(lama_info["message"])
     if options["preference_tags"]:
         logger.emit(f"[*] Mapped note tags: {', '.join(options['preference_tags'])}")
     if options["user_note"]:

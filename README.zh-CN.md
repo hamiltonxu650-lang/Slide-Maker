@@ -42,7 +42,7 @@ Slide Maker 现在可以：
 2. 可选地先对斜拍图片做扫描裁正
 3. 运行 OCR，识别文字框
 4. 估算字号，并从原图采样文字颜色
-5. 用 LaMa 或 OpenCV 回退方案清理背景文字
+5. 用 LaMa 清理背景文字
 6. 生成可编辑的 `.pptx`
 7. 可选地再走一遍基于 Node 的高保真排版
 
@@ -210,7 +210,7 @@ Slide Maker 已经不再把 LaMa 权重视作仓库里稳定内置的源码资�
 - 自定义环境变量：`SLIDE_MAKER_LAMA_MODEL`
 - 兼容别名：`LAMA_MODEL`
 
-如果没有配置 LaMa，Slide Maker 会自动回退到 OpenCV Telea。
+如果没有配置 LaMa，Slide Maker 会直接停止转换，并提示你先配置好模型。
 
 如果仓库里只有 Git LFS 指针占位文件，程序会优先尝试模型槽位配置，必要时再下载官方上游权重。
 

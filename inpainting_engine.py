@@ -7,7 +7,7 @@ from PIL import Image
 import numpy as np
 import torch
 from simple_lama_inpainting.models.model import LAMA_MODEL_URL
-from simple_lama_inpainting.utils import download_model, prepare_img_and_mask
+from simple_lama_inpainting.utils.util import download_model, prepare_img_and_mask
 
 from services.app_models import describe_lama_model_setup
 from services.runtime_env import detect_project_root

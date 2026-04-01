@@ -42,7 +42,7 @@ The current pipeline is:
 2. optionally scan and rectify skewed photos
 3. run OCR and detect text boxes
 4. estimate font size and sample text color from the source
-5. clean the background with LaMa or OpenCV fallback
+5. clean the background with LaMa
 6. generate an editable `.pptx`
 7. optionally run a Node-based high-fidelity layout pass
 
@@ -210,7 +210,7 @@ Supported locations:
 - custom environment variable: `SLIDE_MAKER_LAMA_MODEL`
 - compatibility alias: `LAMA_MODEL`
 
-If LaMa is not configured, Slide Maker automatically falls back to OpenCV Telea.
+If LaMa is not configured, Slide Maker stops the conversion and asks you to configure the model first.
 
 If the repository only contains a Git LFS pointer placeholder, Slide Maker now falls back to the configured slot or downloads the official upstream weight when needed.
 
@@ -281,6 +281,21 @@ The current Windows release flow is:
 1. build the desktop distribution with PyInstaller
 2. bundle the runtime assets required by OCR, layout, scanner, and UI
 3. optionally wrap the packaged folder into an installer with Inno Setup
+
+`build.ps1` now expects these runtime assets to be present before packaging:
+
+- `models/big-lama.pt`
+- `runtime/node.exe`
+- production-only `pptx-project/node_modules`
+
+The build script also prunes unused `pptx-project` dependencies and removes generated layout-test artifacts before packaging, so the resulting Windows bundle stays focused on actual runtime needs.
+
+The packaged Windows app now ships as a hybrid layout:
+
+- a PyInstaller desktop shell for the visible GUI
+- a bundled portable worker runtime under `portable_python`, `portable_site_packages`, and `portable_app`
+
+That design is intentional. The GUI prefers the portable worker path because it has proven more reliable than running the frozen `--worker` path directly for heavy `torch` / `onnxruntime` workloads.
 
 ## Docker Deployment
 

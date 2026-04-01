@@ -262,6 +262,12 @@ def lama_model_slot(project_root: Path | None = None) -> Path:
     return slot
 
 
+def legacy_lama_model_path(project_root: Path | None = None) -> Path | None:
+    if project_root is None:
+        return None
+    return Path(project_root) / "models" / LAMA_MODEL_FILENAME
+
+
 def ocr_model_slot_dir(project_root: Path | None = None) -> Path:
     slot_dir = app_data_root(project_root) / "models" / "rapidocr" / "onnxruntime"
     slot_dir.mkdir(parents=True, exist_ok=True)
@@ -352,6 +358,8 @@ def describe_ocr_model_setup(project_root: Path | None = None) -> dict:
 
 def describe_lama_model_setup(project_root: Path | None = None) -> dict:
     slot = lama_model_slot(project_root)
+    legacy_path = legacy_lama_model_path(project_root)
+    invalid_env_message = ""
 
     for env_var in LAMA_MODEL_ENV_VARS:
         raw_path = str(os.getenv(env_var, "") or "").strip()
@@ -373,21 +381,31 @@ def describe_lama_model_setup(project_root: Path | None = None) -> dict:
                 "message": f"LaMa 模型已就绪，当前使用 {env_var} 指向的文件。",
             }
 
-        return {
-            "available": False,
-            "model_path": str(candidate),
-            "slot_path": str(slot),
-            "source": env_var,
-            "message": f"环境变量 {env_var} 指向的模型不存在：{candidate}",
-        }
+        invalid_env_message = f"环境变量 {env_var} 指向的模型不存在：{candidate}"
+        break
 
     if slot.exists() and slot.is_file():
+        message = "LaMa 模型已就绪，当前使用预留模型槽位中的文件。"
+        if invalid_env_message:
+            message = f"{invalid_env_message} 已忽略，当前改用预留模型槽位中的文件。"
         return {
             "available": True,
             "model_path": str(slot),
             "slot_path": str(slot),
             "source": "slot",
-            "message": "LaMa 模型已就绪，当前使用预留模型槽位中的文件。",
+            "message": message,
+        }
+
+    if legacy_path is not None and legacy_path.exists() and legacy_path.is_file():
+        message = "LaMa 模型已就绪，当前使用项目目录中的兼容模型文件。"
+        if invalid_env_message:
+            message = f"{invalid_env_message} 已忽略，当前改用项目目录中的兼容模型文件。"
+        return {
+            "available": True,
+            "model_path": str(legacy_path),
+            "slot_path": str(slot),
+            "source": "legacy-project-model",
+            "message": message,
         }
 
     return {
@@ -396,8 +414,13 @@ def describe_lama_model_setup(project_root: Path | None = None) -> dict:
         "slot_path": str(slot),
         "source": "slot",
         "message": (
-            f"未检测到 LaMa 模型。请将 {LAMA_MODEL_FILENAME} 放到 {slot}，"
-            "或设置环境变量 SLIDE_MAKER_LAMA_MODEL 指向你自己下载的模型文件。"
+            (
+                f"{invalid_env_message}。"
+                if invalid_env_message
+                else f"未检测到 LaMa 模型。"
+            )
+            + f"请将 {LAMA_MODEL_FILENAME} 放到 {slot}，"
+            + "或设置环境变量 SLIDE_MAKER_LAMA_MODEL 指向你自己下载的模型文件。"
         ),
     }
 
