@@ -2,15 +2,27 @@
 
 [English](README.md) | [简体中文](README.zh-CN.md)
 
-Slide Maker is a local-first toolchain for rebuilding PDFs, screenshots, and slide images into editable PowerPoint presentations.
+Slide Maker is a local-first toolchain for rebuilding PDFs, screenshots, scanned slide photos, and page images into editable PowerPoint presentations.
 
-`v0.2.0` is the first version that brings the current product shape together:
+`v0.3.0` is the first release that brings the project into a broader deployable shape:
 
-- a cross-platform guided `terminal_ui.py`
-- a desktop UI for day-to-day use
+- a cross-platform guided terminal interface
+- a desktop UI for daily use
 - a CLI for scripted runs
+- a local web app for browser-based conversion
+- document-scanner style perspective correction
 - user-managed LaMa and OCR model slots
 - a high-fidelity Node layout pass with compatibility fallback
+- a Windows packaging flow that can also be wrapped into an installer
+
+## v0.3.0 Highlights
+
+- Scanner integration for skewed slide photos and photographed documents
+- Shared conversion core across terminal UI, desktop UI, CLI, and web app
+- Local FastAPI web deployment with Docker support
+- Improved native Node.js detection on non-Windows platforms
+- Safer LaMa model loading when the repository only contains Git LFS pointer files
+- Continued Windows packaging work, including an Inno Setup installer script
 
 ## What This Version Does
 
@@ -19,6 +31,7 @@ Slide Maker can:
 - convert PDF files into editable `.pptx`
 - convert a single image into `.pptx`
 - convert a directory of images into a multi-slide `.pptx`
+- rectify skewed photographed slides before conversion
 - rebuild text boxes from OCR results
 - remove source text from the background before reconstruction
 - stay fully local after dependencies and optional models are ready
@@ -26,11 +39,12 @@ Slide Maker can:
 The current pipeline is:
 
 1. extract PDF pages or collect input images
-2. run OCR and detect text boxes
-3. estimate font size and sample text color from the source
-4. clean the background with LaMa or OpenCV fallback
-5. generate an editable `.pptx`
-6. optionally run a Node-based high-fidelity layout pass
+2. optionally scan and rectify skewed photos
+3. run OCR and detect text boxes
+4. estimate font size and sample text color from the source
+5. clean the background with LaMa or OpenCV fallback
+6. generate an editable `.pptx`
+7. optionally run a Node-based high-fidelity layout pass
 
 ## Platform Support
 
@@ -39,17 +53,32 @@ The current pipeline is:
 | Terminal UI | Yes | Yes | Yes | Recommended starting point |
 | CLI | Yes | Yes | Yes | Good for automation |
 | Desktop UI from source | Yes | Yes | Yes | Requires PyQt6 dependencies |
-| Packaged desktop build | Yes | No | No | Current packaging script targets Windows |
+| Local web app | Yes | Yes | Yes | Runs with FastAPI/Uvicorn |
+| Docker web deployment | Yes | Yes | Yes | Requires Docker |
+| Packaged desktop build | Yes | No | No | Current packaging scripts target Windows |
+| Windows installer output | Yes | No | No | Built from the packaged desktop folder |
 
 ## Requirements
 
-- Python 3.10 or newer
+- Python 3.10 or newer is still the recommended target
 - Node.js on `PATH` if you want the high-fidelity layout engine
-- Packages from `requirements.txt`
+- packages from `requirements.txt`
 - `npm install` inside `pptx-project`
 - PowerShell only when building the Windows packaged app
+- Inno Setup only when producing the Windows installer
 
 If Node.js is not available, Slide Maker still runs and falls back to compatibility rendering.
+
+## Version Entry Points
+
+All major interfaces in `v0.3.0` share the same conversion service:
+
+- `terminal_ui.py` for guided setup and interactive runs
+- `ui_app.py` for the PyQt desktop interface
+- `run_pipeline.py` for CLI automation
+- `web_app.py` for local browser access
+
+That means preference mapping, OCR, background cleanup, layout rendering, and output handling stay consistent across interfaces.
 
 ## Setup
 
@@ -112,6 +141,7 @@ python ui_app.py --demo
 python run_pipeline.py input.pdf --output Result_Presentation.pptx
 python run_pipeline.py input.png --output Result_Presentation.pptx
 python run_pipeline.py ./slides --output Result_Presentation.pptx
+python run_pipeline.py input.jpg --scan --output Result_Presentation.pptx
 ```
 
 Use `--no-open` if you do not want the app to prompt to open the result.
@@ -138,8 +168,8 @@ The web UI currently supports:
 
 - PDF uploads
 - PNG / JPG / JPEG uploads
-- Conversion focus selection
-- Direct `.pptx` download
+- conversion focus selection
+- direct `.pptx` download
 
 ### Lower-Level Pipeline
 
@@ -147,11 +177,28 @@ The web UI currently supports:
 python main.py --input ./slides --output output.pptx
 ```
 
+## Document Scanner
+
+`v0.3.0` adds a scanner-style preprocessing path for photographed slides and documents.
+
+It includes:
+
+- automatic corner detection
+- perspective correction with a four-point transform
+- enhancement modes for color, grayscale, and clean black-and-white style output
+- a manual PyQt corner-adjustment dialog when auto-detection needs help
+
+The scanner path is especially useful when the source is:
+
+- a phone photo of a slide
+- a photographed printed handout
+- a perspective-skewed capture that should be flattened before OCR
+
 ## Model Management
 
 ### LaMa Background-Repair Model
 
-Slide Maker no longer treats the LaMa weight as a bundled repository asset.
+Slide Maker no longer treats the LaMa weight as a stable bundled repository asset.
 
 Expected filename:
 
@@ -164,6 +211,8 @@ Supported locations:
 - compatibility alias: `LAMA_MODEL`
 
 If LaMa is not configured, Slide Maker automatically falls back to OpenCV Telea.
+
+If the repository only contains a Git LFS pointer placeholder, Slide Maker now falls back to the configured slot or downloads the official upstream weight when needed.
 
 Upstream model source used by the original dependency:
 
@@ -225,12 +274,17 @@ Windows packaging is driven by:
 
 - `build.ps1`
 - `Slide_Maker.spec`
+- `Slide_Maker_Setup.iss`
 
-This release no longer packages the LaMa model as a repository-tracked source asset.
+The current Windows release flow is:
 
-### Docker Deployment
+1. build the desktop distribution with PyInstaller
+2. bundle the runtime assets required by OCR, layout, scanner, and UI
+3. optionally wrap the packaged folder into an installer with Inno Setup
 
-The repository now also includes a Dockerfile for the web version, so it can be deployed to Docker-capable platforms such as Railway, Render, Fly.io, or a self-hosted server:
+## Docker Deployment
+
+The repository also includes a Dockerfile for the web version, so it can be deployed to Docker-capable platforms such as Railway, Render, Fly.io, or a self-hosted server:
 
 ```bash
 docker build -t slide-maker-web .
@@ -244,10 +298,13 @@ docker run --rm -p 7860:7860 slide-maker-web
 ├── terminal_ui.py               # Cross-platform guided terminal workflow
 ├── ui_app.py                    # Desktop UI entrypoint
 ├── run_pipeline.py              # High-level CLI entrypoint
+├── web_app.py                   # FastAPI web entrypoint
+├── scanner_engine.py            # Perspective correction and enhancement pipeline
 ├── main.py                      # Core image-to-ppt pipeline
 ├── services/                    # Settings, runtime detection, conversion orchestration
 ├── ui/                          # PyQt UI components
 ├── scripts/                     # Setup helpers and OCR download script
+├── web/                         # HTML/CSS for the local web app
 ├── pptx-project/                # Node layout engine assets
 ├── assets/                      # Icons and bundled visuals
 └── build.ps1                    # Windows packaging script
@@ -258,3 +315,4 @@ docker run --rm -p 7860:7860 slide-maker-web
 - The repository is an actively iterated product workbench, not a polished public SDK.
 - Some historical development logs are still kept in-tree for context.
 - No dedicated license file is documented in the repository root yet. Review usage rights before redistribution.
+- The local web app is a local deployment target by default. Publishing it as a public internet service is a separate deployment step.
