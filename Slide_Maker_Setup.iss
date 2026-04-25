@@ -2,7 +2,7 @@
 ; This script bundles the PyInstaller 'dist/Slide-Maker' folder into a setup.exe
 
 #define MyAppName "Slide Maker"
-#define MyAppVersion "0.3.0"
+#define MyAppVersion "0.4.0"
 #define MyAppPublisher "lewisxu"
 #define MyAppURL "https://github.com/hamiltonxu650-lang/Slide-Maker"
 #define MyAppExeName "SlideMaker.exe"

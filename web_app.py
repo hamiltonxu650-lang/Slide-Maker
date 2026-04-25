@@ -33,7 +33,7 @@ FOCUS_LABELS = {
     PREFERENCE_SPEED: "速度优先",
 }
 
-app = FastAPI(title="Slide Maker Web", version="1.0.0")
+app = FastAPI(title="Slide Maker Web", version="0.4.0")
 app.mount("/static", StaticFiles(directory=str(WEB_DIR / "static")), name="static")
 templates = Jinja2Templates(directory=str(WEB_DIR / "templates"))
 

@@ -1,100 +1,64 @@
 # Slide Maker
 
-[English](README.md) | [简体中文](README.zh-CN.md)
+[English](README.md) | [Simplified Chinese](README.zh-CN.md)
 
-Slide Maker is a local-first toolchain for rebuilding PDFs, screenshots, scanned slide photos, and page images into editable PowerPoint presentations.
+Slide Maker is a local-first tool that turns PDFs, screenshots, scanned pages, and photographed slides into editable PowerPoint files.
 
-`v0.3.0` is the first release that brings the project into a broader deployable shape:
+## v0.4.0
 
-- a cross-platform guided terminal interface
-- a desktop UI for daily use
-- a CLI for scripted runs
-- a local web app for browser-based conversion
-- document-scanner style perspective correction
-- user-managed LaMa and OCR model slots
-- a high-fidelity Node layout pass with compatibility fallback
-- a Windows packaging flow that can also be wrapped into an installer
+- Windows release now ships as a tested portable desktop package
+- Background repair now requires LaMa and no longer silently falls back to OpenCV
+- Packaged builds prefer the bundled runtime more reliably
+- README refreshed for a clearer public release experience
 
-## v0.3.0 Highlights
+## What It Can Do
 
-- Scanner integration for skewed slide photos and photographed documents
-- Shared conversion core across terminal UI, desktop UI, CLI, and web app
-- Local FastAPI web deployment with Docker support
-- Improved native Node.js detection on non-Windows platforms
-- Safer LaMa model loading when the repository only contains Git LFS pointer files
-- Continued Windows packaging work, including an Inno Setup installer script
+- Convert PDF files into editable `.pptx`
+- Convert a single image into `.pptx`
+- Convert a folder of images into a multi-slide `.pptx`
+- Fix perspective for photographed slides before OCR
+- Rebuild text boxes from OCR results
+- Clean source text from the background with LaMa
+- Stay fully local once dependencies and models are ready
 
-## What This Version Does
+## Best Way To Start
 
-Slide Maker can:
+### Windows Portable Release
 
-- convert PDF files into editable `.pptx`
-- convert a single image into `.pptx`
-- convert a directory of images into a multi-slide `.pptx`
-- rectify skewed photographed slides before conversion
-- rebuild text boxes from OCR results
-- remove source text from the background before reconstruction
-- stay fully local after dependencies and optional models are ready
+For most users, the easiest path is the packaged Windows release on the [Releases](https://github.com/hamiltonxu650-lang/Slide-Maker/releases) page.
 
-The current pipeline is:
+1. Download the latest portable ZIP.
+2. Extract it anywhere you want.
+3. Put `big-lama.pt` in `%LOCALAPPDATA%\\SlideMaker\\models\\lama\\big-lama.pt`.
+4. Launch `SlideMaker.exe`.
+5. Convert your PDF or images to `.pptx`.
 
-1. extract PDF pages or collect input images
-2. optionally scan and rectify skewed photos
-3. run OCR and detect text boxes
-4. estimate font size and sample text color from the source
-5. clean the background with LaMa
-6. generate an editable `.pptx`
-7. optionally run a Node-based high-fidelity layout pass
+Notes:
 
-## Platform Support
+- The packaged Windows build already includes the Node runtime used for the high-fidelity layout pass.
+- If you prefer a custom model location, set `SLIDE_MAKER_LAMA_MODEL`.
+
+## Supported Workflows
 
 | Workflow | Windows | macOS | Linux | Notes |
 | --- | --- | --- | --- | --- |
-| Terminal UI | Yes | Yes | Yes | Recommended starting point |
+| Terminal UI | Yes | Yes | Yes | Good first setup flow |
 | CLI | Yes | Yes | Yes | Good for automation |
-| Desktop UI from source | Yes | Yes | Yes | Requires PyQt6 dependencies |
+| Desktop UI from source | Yes | Yes | Yes | Requires PyQt6 |
 | Local web app | Yes | Yes | Yes | Runs with FastAPI/Uvicorn |
-| Docker web deployment | Yes | Yes | Yes | Requires Docker |
-| Packaged desktop build | Yes | No | No | Current packaging scripts target Windows |
-| Windows installer output | Yes | No | No | Built from the packaged desktop folder |
+| Docker web deployment | Yes | Yes | Yes | For self-hosting the local web app |
+| Packaged desktop build | Yes | No | No | Current release packaging target |
 
-## Requirements
-
-- Python 3.10 or newer is still the recommended target
-- Node.js on `PATH` if you want the high-fidelity layout engine
-- packages from `requirements.txt`
-- `npm install` inside `pptx-project`
-- PowerShell only when building the Windows packaged app
-- Inno Setup only when producing the Windows installer
-
-If Node.js is not available, Slide Maker still runs and falls back to compatibility rendering.
-
-## Version Entry Points
-
-All major interfaces in `v0.3.0` share the same conversion service:
-
-- `terminal_ui.py` for guided setup and interactive runs
-- `ui_app.py` for the PyQt desktop interface
-- `run_pipeline.py` for CLI automation
-- `web_app.py` for local browser access
-
-That means preference mapping, OCR, background cleanup, layout rendering, and output handling stay consistent across interfaces.
-
-## Setup
+## Quick Start From Source
 
 ### Windows
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\setup_windows.ps1
+python terminal_ui.py
 ```
 
-### macOS
-
-```bash
-bash ./scripts/setup_macos.sh
-```
-
-### Linux
+### macOS / Linux
 
 ```bash
 python3 -m venv .venv
@@ -102,24 +66,10 @@ source .venv/bin/activate
 python -m pip install --upgrade pip setuptools wheel
 python -m pip install -r requirements.txt
 cd pptx-project && npm install && cd ..
-```
-
-## Recommended Start: Terminal UI
-
-The simplest way to configure and use this release is:
-
-```bash
 python terminal_ui.py
 ```
 
-The terminal UI works on Windows, macOS, and Linux and can:
-
-- inspect the runtime environment
-- guide LaMa and OCR model setup from scratch
-- download the official OCR ONNX models into the reserved slot
-- open model directories for you
-- save default conversion preferences
-- run PDF, image, and image-directory conversions interactively
+The terminal UI is the easiest source-based entry point because it can inspect the runtime, guide model setup, and run conversions interactively.
 
 ## Other Entry Points
 
@@ -129,7 +79,7 @@ The terminal UI works on Windows, macOS, and Linux and can:
 python ui_app.py
 ```
 
-Useful flags:
+Demo-only preview:
 
 ```bash
 python ui_app.py --demo
@@ -148,8 +98,6 @@ Use `--no-open` if you do not want the app to prompt to open the result.
 
 ### Web App
 
-If you want to run Slide Maker as a web app, start the FastAPI entrypoint:
-
 ```bash
 python -m venv .venv
 source .venv/bin/activate
@@ -158,47 +106,13 @@ cd pptx-project && npm install && cd ..
 uvicorn web_app:app --host 0.0.0.0 --port 7860
 ```
 
-Then open:
+Then open `http://127.0.0.1:7860`.
 
-```text
-http://127.0.0.1:7860
-```
+## Model Setup
 
-The web UI currently supports:
+### LaMa Background Repair
 
-- PDF uploads
-- PNG / JPG / JPEG uploads
-- conversion focus selection
-- direct `.pptx` download
-
-### Lower-Level Pipeline
-
-```bash
-python main.py --input ./slides --output output.pptx
-```
-
-## Document Scanner
-
-`v0.3.0` adds a scanner-style preprocessing path for photographed slides and documents.
-
-It includes:
-
-- automatic corner detection
-- perspective correction with a four-point transform
-- enhancement modes for color, grayscale, and clean black-and-white style output
-- a manual PyQt corner-adjustment dialog when auto-detection needs help
-
-The scanner path is especially useful when the source is:
-
-- a phone photo of a slide
-- a photographed printed handout
-- a perspective-skewed capture that should be flattened before OCR
-
-## Model Management
-
-### LaMa Background-Repair Model
-
-Slide Maker no longer treats the LaMa weight as a stable bundled repository asset.
+LaMa is required for background repair in `v0.4.0`.
 
 Expected filename:
 
@@ -206,39 +120,26 @@ Expected filename:
 
 Supported locations:
 
-- reserved slot: `.slide_maker_data/models/lama/big-lama.pt`
-- custom environment variable: `SLIDE_MAKER_LAMA_MODEL`
-- compatibility alias: `LAMA_MODEL`
+- `%LOCALAPPDATA%\\SlideMaker\\models\\lama\\big-lama.pt` for packaged Windows runs
+- `.slide_maker_data/models/lama/big-lama.pt` for source runs
+- `SLIDE_MAKER_LAMA_MODEL`
+- `LAMA_MODEL`
 
-If LaMa is not configured, Slide Maker stops the conversion and asks you to configure the model first.
+If LaMa is missing, Slide Maker stops and asks you to configure the model first.
 
-If the repository only contains a Git LFS pointer placeholder, Slide Maker now falls back to the configured slot or downloads the official upstream weight when needed.
-
-Upstream model source used by the original dependency:
+Official upstream weight used by the dependency:
 
 - [big-lama.pt](https://github.com/enesmsahin/simple-lama-inpainting/releases/download/v0.1.0/big-lama.pt)
 
 ### OCR Models
 
-By default, Slide Maker can use the packaged RapidOCR models. This release also supports user-managed OCR models.
+RapidOCR is supported out of the box, and user-managed OCR models are also supported.
 
-Reserved slot directory:
+Reserved slot:
 
 - `.slide_maker_data/models/rapidocr/onnxruntime/`
 
-Expected filenames:
-
-- `ch_PP-OCRv4_det_infer.onnx`
-- `ch_ppocr_mobile_v2.0_cls_infer.onnx`
-- `ch_PP-OCRv4_rec_infer.onnx`
-
-Custom environment variables:
-
-- `SLIDE_MAKER_OCR_DET_MODEL`
-- `SLIDE_MAKER_OCR_CLS_MODEL`
-- `SLIDE_MAKER_OCR_REC_MODEL`
-
-Quick download into the reserved slot:
+Optional helper:
 
 ```bash
 python scripts/download_ocr_models.py
@@ -249,26 +150,11 @@ python scripts/download_ocr_models.py
 Slide Maker can finish in two ways:
 
 - High fidelity: uses Node.js and `pptx-project/layout_engine.js` for better layout recovery
-- Compatibility: keeps the Python-generated `.pptx` output when Node.js is unavailable or compatibility mode is selected
+- Compatibility: keeps the Python-generated `.pptx` when Node.js is unavailable or compatibility mode is selected
 
-That means the tool remains usable even on a minimal setup.
+The packaged Windows build automatically prefers the bundled Node runtime.
 
-## Runtime Data
-
-At runtime, Slide Maker writes logs, temp files, and model slots into app data:
-
-- source checkout on macOS/Linux: `.slide_maker_data/`
-- Windows app-data mode: `%LOCALAPPDATA%\SlideMaker\`
-
-Useful subdirectories include:
-
-- `logs/`
-- `runtime/`
-- `models/lama/`
-- `models/rapidocr/onnxruntime/`
-- `config/`
-
-## Packaging
+## Packaging Notes
 
 Windows packaging is driven by:
 
@@ -276,58 +162,33 @@ Windows packaging is driven by:
 - `Slide_Maker.spec`
 - `Slide_Maker_Setup.iss`
 
-The current Windows release flow is:
-
-1. build the desktop distribution with PyInstaller
-2. bundle the runtime assets required by OCR, layout, scanner, and UI
-3. optionally wrap the packaged folder into an installer with Inno Setup
-
-`build.ps1` now expects these runtime assets to be present before packaging:
-
-- `models/big-lama.pt`
-- `runtime/node.exe`
-- production-only `pptx-project/node_modules`
-
-The build script also prunes unused `pptx-project` dependencies and removes generated layout-test artifacts before packaging, so the resulting Windows bundle stays focused on actual runtime needs.
-
-The packaged Windows app now ships as a hybrid layout:
+The current packaged app uses a hybrid layout:
 
 - a PyInstaller desktop shell for the visible GUI
-- a bundled portable worker runtime under `portable_python`, `portable_site_packages`, and `portable_app`
+- a portable worker runtime under `portable_python`, `portable_site_packages`, and `portable_app`
 
-That design is intentional. The GUI prefers the portable worker path because it has proven more reliable than running the frozen `--worker` path directly for heavy `torch` / `onnxruntime` workloads.
-
-## Docker Deployment
-
-The repository also includes a Dockerfile for the web version, so it can be deployed to Docker-capable platforms such as Railway, Render, Fly.io, or a self-hosted server:
-
-```bash
-docker build -t slide-maker-web .
-docker run --rm -p 7860:7860 slide-maker-web
-```
+That design is intentional. It has been more reliable than running a fully frozen worker directly for `torch` and `onnxruntime` heavy jobs.
 
 ## Project Layout
 
 ```text
 .
-├── terminal_ui.py               # Cross-platform guided terminal workflow
-├── ui_app.py                    # Desktop UI entrypoint
-├── run_pipeline.py              # High-level CLI entrypoint
-├── web_app.py                   # FastAPI web entrypoint
-├── scanner_engine.py            # Perspective correction and enhancement pipeline
-├── main.py                      # Core image-to-ppt pipeline
-├── services/                    # Settings, runtime detection, conversion orchestration
-├── ui/                          # PyQt UI components
-├── scripts/                     # Setup helpers and OCR download script
-├── web/                         # HTML/CSS for the local web app
-├── pptx-project/                # Node layout engine assets
-├── assets/                      # Icons and bundled visuals
-└── build.ps1                    # Windows packaging script
+|-- terminal_ui.py
+|-- ui_app.py
+|-- run_pipeline.py
+|-- web_app.py
+|-- services/
+|-- ui/
+|-- scripts/
+|-- web/
+|-- pptx-project/
+|-- runtime/
+|-- assets/
+`-- build.ps1
 ```
 
-## Notes
+## Status
 
-- The repository is an actively iterated product workbench, not a polished public SDK.
-- Some historical development logs are still kept in-tree for context.
-- No dedicated license file is documented in the repository root yet. Review usage rights before redistribution.
-- The local web app is a local deployment target by default. Publishing it as a public internet service is a separate deployment step.
+- This repository is an actively developed product workbench, not a polished SDK.
+- The main focus right now is local conversion quality and Windows desktop usability.
+- The web app is intended for local deployment by default; public hosting is a separate step.

@@ -5,6 +5,7 @@
 # 3. Optionally wraps the result into an Inno Setup installer.
 
 $python = ".\venv\Scripts\python.exe"
+$releaseVersion = "0.4.0"
 if (-not (Test-Path $python)) {
     Write-Host "[!] Virtual environment not found at .\venv\Scripts\python.exe" -ForegroundColor Red
     Write-Host "[*] Please create it first: python -m venv venv && .\venv\Scripts\pip install -r requirements.txt"
@@ -257,6 +258,6 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 Write-Host "`n[+++] BUILD COMPLETE [+++]" -ForegroundColor White -BackgroundColor DarkGreen
-Write-Host "[*] Installer generated: Output\Slide-Maker-Setup-v0.3.0.exe" -ForegroundColor Cyan
+Write-Host "[*] Installer generated: Output\Slide-Maker-Setup-v$releaseVersion.exe" -ForegroundColor Cyan
 Write-Host "[*] Portable version: dist\Slide-Maker\" -ForegroundColor Cyan
 
