@@ -36,7 +36,38 @@ For most users, the easiest path is the packaged Windows release on the [Release
 Notes:
 
 - The packaged Windows build already includes the Node runtime used for the high-fidelity layout pass.
+- The packaged Windows build already includes the portable Python runtime, OCR runtime, and LaMa model.
 - If you prefer a custom model location, set `SLIDE_MAKER_LAMA_MODEL`.
+
+## System Requirements
+
+### Minimum Supported
+
+- Windows 10 or Windows 11, 64-bit
+- Intel or AMD x64 CPU
+- 16 GB RAM for normal use
+- 4 GB free disk space
+- No GPU required
+- No separate Python or Node.js installation required
+
+### Recommended
+
+- Windows 11, 64-bit
+- 16 GB to 32 GB RAM
+- SSD storage with 8 GB or more free space
+- Modern 4-core CPU or better
+
+### Tested Runtime Notes
+
+The packaged `v0.4.0` Windows release was tested as a self-contained portable bundle:
+
+- ZIP download size: about `753 MB`
+- Unpacked size: about `1.85 GB`
+- Includes `Python 3.10.10`, `Node v24.14.0`, `torch 2.10.0+cpu`, `onnxruntime 1.23.2`, and `big-lama.pt`
+- Single-image conversion peaked around `1.5 GB` working set in local tests
+- A 3-page PDF conversion peaked around `5.8 GB` working set in local tests
+
+If a user only has `8 GB RAM`, light single-image jobs may still work, but multi-page PDF conversion is not a safe target.
 
 ## Supported Workflows
 
