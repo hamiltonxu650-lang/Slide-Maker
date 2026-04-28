@@ -1,6 +1,16 @@
-from PyQt6 import QtCore, QtWidgets
+from PyQt6 import QtCore, QtGui, QtWidgets
 
 from services.app_models import APP_BRAND
+from services.runtime_env import find_app_display_icon
+from ui.icons import sharp_pixmap, svg_icon
+
+
+NAV_ITEMS = (
+    ("home", "home", "Home"),
+    ("recent", "clock", "Recent"),
+    ("settings", "settings", "Settings"),
+    ("about", "info", "About"),
+)
 
 
 class Sidebar(QtWidgets.QFrame):
@@ -9,50 +19,53 @@ class Sidebar(QtWidgets.QFrame):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setObjectName("Sidebar")
-        self.setFixedWidth(228)
+        self.setFixedWidth(92)
         self._buttons = {}
 
         layout = QtWidgets.QVBoxLayout(self)
-        layout.setContentsMargins(18, 20, 18, 20)
-        layout.setSpacing(12)
+        layout.setContentsMargins(12, 18, 12, 18)
+        layout.setSpacing(18)
 
-        brand = QtWidgets.QLabel(APP_BRAND)
-        brand.setObjectName("SidebarBrand")
-        layout.addWidget(brand)
+        logo = QtWidgets.QLabel()
+        logo.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
+        logo.setFixedSize(46, 46)
+        icon_path = find_app_display_icon()
+        if icon_path:
+            logo.setPixmap(sharp_pixmap(icon_path, 42))
+        else:
+            logo.setText("S")
+            logo.setObjectName("SidebarBrand")
+        layout.addWidget(logo, alignment=QtCore.Qt.AlignmentFlag.AlignHCenter)
 
-        caption = QtWidgets.QLabel("离线桌面工作台 · PDF / 图片 转 PPTX")
-        caption.setObjectName("SidebarCaption")
-        caption.setWordWrap(True)
-        layout.addWidget(caption)
+        dock = QtWidgets.QFrame()
+        dock.setObjectName("RailDock")
+        dock_layout = QtWidgets.QVBoxLayout(dock)
+        dock_layout.setContentsMargins(10, 16, 10, 16)
+        dock_layout.setSpacing(18)
+        layout.addWidget(dock, alignment=QtCore.Qt.AlignmentFlag.AlignHCenter)
 
-        layout.addSpacing(14)
-
-        for key, label in (
-            ("home", "首页"),
-            ("recent", "最近任务"),
-            ("settings", "设置"),
-            ("about", "关于"),
-        ):
-            button = QtWidgets.QPushButton(label)
-            button.setObjectName("NavButton")
+        for key, icon_name, tooltip in NAV_ITEMS:
+            button = QtWidgets.QPushButton()
+            button.setObjectName("RailButton")
             button.setCursor(QtCore.Qt.CursorShape.PointingHandCursor)
+            button.setToolTip(tooltip)
+            button.setFixedSize(44, 44)
+            button.setIconSize(QtCore.QSize(21, 21))
+            button.setProperty("iconName", icon_name)
             button.clicked.connect(lambda checked=False, page=key: self.select_page(page))
-            layout.addWidget(button)
+            dock_layout.addWidget(button, alignment=QtCore.Qt.AlignmentFlag.AlignHCenter)
             self._buttons[key] = button
 
         layout.addStretch(1)
-
-        footer = QtWidgets.QLabel("PDF \u8f6c PPTX \u00b7 \u56fe\u7247\u8f6c PPTX \u00b7 \u66f4\u591a\u5373\u5c06\u63a8\u51fa")
-        footer.setObjectName("SidebarCaption")
-        footer.setWordWrap(True)
-        layout.addWidget(footer)
 
         self.select_page("home")
 
     def select_page(self, key):
         for page, button in self._buttons.items():
-            button.setProperty("active", page == key)
+            active = page == key
+            icon_color = "#FFE75F" if active else "#383D48"
+            button.setProperty("active", active)
+            button.setIcon(svg_icon(button.property("iconName"), icon_color, 22))
             button.style().unpolish(button)
             button.style().polish(button)
         self.pageSelected.emit(key)
-

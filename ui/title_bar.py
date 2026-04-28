@@ -1,7 +1,8 @@
 from PyQt6 import QtCore, QtGui, QtWidgets
 
 from services.app_models import APP_BRAND
-from services.runtime_env import find_app_icon
+from services.runtime_env import find_app_display_icon
+from ui.icons import sharp_pixmap
 
 
 class CustomTitleBar(QtWidgets.QFrame):
@@ -13,21 +14,15 @@ class CustomTitleBar(QtWidgets.QFrame):
         self.setFixedHeight(56)
 
         layout = QtWidgets.QHBoxLayout(self)
-        layout.setContentsMargins(14, 8, 8, 8)
-        layout.setSpacing(12)
+        layout.setContentsMargins(16, 8, 12, 8)
+        layout.setSpacing(10)
 
         logo = QtWidgets.QLabel()
         logo.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
         logo.setFixedSize(32, 32)
-        icon_path = find_app_icon()
+        icon_path = find_app_display_icon()
         if icon_path:
-            pixmap = QtGui.QPixmap(str(icon_path)).scaled(
-                32,
-                32,
-                QtCore.Qt.AspectRatioMode.KeepAspectRatio,
-                QtCore.Qt.TransformationMode.SmoothTransformation,
-            )
-            logo.setPixmap(pixmap)
+            logo.setPixmap(sharp_pixmap(icon_path, 30))
         else:
             logo.setText("S")
             logo.setStyleSheet(
@@ -50,42 +45,25 @@ class CustomTitleBar(QtWidgets.QFrame):
         layout.addLayout(text_layout)
         layout.addStretch(1)
 
-        self.min_button = self._create_button(
-            self.style().standardIcon(QtWidgets.QStyle.StandardPixmap.SP_TitleBarMinButton),
-            lambda: self._window.showMinimized(),
-        )
+        self.min_button = self._create_button("—", lambda: self._window.showMinimized())
         layout.addWidget(self.min_button)
 
-        self.max_button = self._create_button(
-            self.style().standardIcon(QtWidgets.QStyle.StandardPixmap.SP_TitleBarMaxButton),
-            self._toggle_maximize,
-        )
+        self.max_button = self._create_button("□", self._toggle_maximize)
         layout.addWidget(self.max_button)
 
-        self.close_button = self._create_button(
-            self.style().standardIcon(QtWidgets.QStyle.StandardPixmap.SP_TitleBarCloseButton),
-            self._window.close,
-            close=True,
-        )
+        self.close_button = self._create_button("✕", self._window.close, close=True)
         layout.addWidget(self.close_button)
 
-    def _create_button(self, icon, callback, close=False):
-        button = QtWidgets.QPushButton()
+    def _create_button(self, text, callback, close=False):
+        button = QtWidgets.QPushButton(text)
         button.setObjectName("CloseButton" if close else "WindowButton")
         button.setCursor(QtCore.Qt.CursorShape.PointingHandCursor)
-        button.setFixedSize(46, 32)
-        button.setIcon(icon)
-        button.setIconSize(QtCore.QSize(12, 12))
+        button.setFixedSize(42, 30)
         button.clicked.connect(callback)
         return button
 
     def update_window_state(self, maximized):
-        icon_type = (
-            QtWidgets.QStyle.StandardPixmap.SP_TitleBarNormalButton
-            if maximized
-            else QtWidgets.QStyle.StandardPixmap.SP_TitleBarMaxButton
-        )
-        self.max_button.setIcon(self.style().standardIcon(icon_type))
+        self.max_button.setText("❐" if maximized else "□")
 
     def _toggle_maximize(self):
         if self._window.isMaximized():

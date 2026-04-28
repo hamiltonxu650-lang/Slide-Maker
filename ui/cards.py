@@ -2,6 +2,7 @@ from pathlib import Path
 
 from PyQt6 import QtCore, QtGui, QtWidgets
 
+from ui.icons import svg_icon, svg_pixmap
 
 class RoundedPreview(QtWidgets.QFrame):
     def __init__(self, image_path=None, overlay_color="#120E1A", parent=None):
@@ -53,50 +54,77 @@ class FeatureCard(QtWidgets.QFrame):
     def __init__(self, title, subtitle, image_path, accent_colors, badge_text, parent=None):
         super().__init__(parent)
         self.setCursor(QtGui.QCursor(QtCore.Qt.CursorShape.PointingHandCursor))
-        self.setMinimumHeight(210)
+        self.setMinimumHeight(220)
         self.setObjectName("FeatureCardRoot")
         self.setStyleSheet(
             "QFrame#FeatureCardRoot {"
-            f"background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 {accent_colors[0]}, stop:0.5 {accent_colors[1]}, stop:1 {accent_colors[2]});"
-            "border-radius: 28px; border: 1px solid rgba(255,255,255,0.10);"
+            f"background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 {accent_colors[0]}, stop:0.55 {accent_colors[1]}, stop:1 {accent_colors[2]});"
+            "border-radius: 28px; border: 1px solid rgba(255,255,255,0.70);"
             "}"
         )
 
-        layout = QtWidgets.QHBoxLayout(self)
-        layout.setContentsMargins(18, 18, 18, 18)
-        layout.setSpacing(18)
+        layout = QtWidgets.QVBoxLayout(self)
+        layout.setContentsMargins(24, 24, 24, 20)
+        layout.setSpacing(10)
 
-        preview = RoundedPreview(image_path=image_path, overlay_color="#1B1826")
-        layout.addWidget(preview)
-
-        content = QtWidgets.QVBoxLayout()
-        content.setSpacing(8)
-        content.addStretch(1)
-
-        badge = QtWidgets.QLabel(badge_text)
-        badge.setStyleSheet(
-            "background: rgba(255,255,255,0.18); border: 1px solid rgba(255,255,255,0.24);"
-            "border-radius: 11px; padding: 5px 10px; font-size: 12px; font-weight: 700; color: white;"
+        kicker = QtWidgets.QLabel(badge_text)
+        kicker.setStyleSheet(
+            "background: rgba(255,255,255,0.58); border-radius: 13px; padding: 5px 11px;"
+            "font-size: 12px; font-weight: 800; color: rgba(25,30,42,0.66);"
         )
-        content.addWidget(badge, alignment=QtCore.Qt.AlignmentFlag.AlignLeft)
+        layout.addWidget(kicker, alignment=QtCore.Qt.AlignmentFlag.AlignLeft)
 
         title_label = QtWidgets.QLabel(title)
-        title_label.setStyleSheet("font-size: 34px; font-weight: 900; color: white; background: transparent;")
-        content.addWidget(title_label)
+        title_label.setStyleSheet("font-size: 25px; font-weight: 900; color: #17191F; background: transparent;")
+        layout.addWidget(title_label)
 
         subtitle_label = QtWidgets.QLabel(subtitle)
         subtitle_label.setWordWrap(True)
         subtitle_label.setStyleSheet(
-            "font-size: 13px; color: rgba(255,255,255,0.80); background: transparent;"
+            "font-size: 14px; color: #485160; background: transparent; line-height: 150%;"
         )
-        content.addWidget(subtitle_label)
-        content.addStretch(2)
+        layout.addWidget(subtitle_label)
 
-        arrow = QtWidgets.QLabel("→")
-        arrow.setStyleSheet("font-size: 42px; font-weight: 900; color: white; background: transparent;")
+        detail_text = "适合课件、报告、扫描 PDF" if "PDF" in title else "支持 PNG / JPG / JPEG，适合单页设计稿"
+        detail_label = QtWidgets.QLabel(detail_text)
+        detail_label.setWordWrap(True)
+        detail_label.setStyleSheet("font-size: 12px; color: rgba(38,47,66,0.62); background: transparent;")
+        layout.addWidget(detail_label)
 
-        layout.addLayout(content, stretch=1)
-        layout.addWidget(arrow, alignment=QtCore.Qt.AlignmentFlag.AlignCenter)
+        layout.addStretch(1)
+
+        tag_row = QtWidgets.QHBoxLayout()
+        tag_row.setSpacing(8)
+        tag_specs = (
+            ("layers", "高保真"),
+            ("scan-line", "OCR"),
+            ("sparkles", "净化"),
+        )
+        for icon_name, tag in tag_specs:
+            tag_pill = QtWidgets.QFrame()
+            tag_pill.setObjectName("FeatureTagPill")
+            tag_pill.setStyleSheet(
+                "QFrame#FeatureTagPill {"
+                "background: rgba(255,255,255,0.72); border-radius: 14px;"
+                "}"
+            )
+            tag_layout = QtWidgets.QHBoxLayout(tag_pill)
+            tag_layout.setContentsMargins(10, 7, 11, 7)
+            tag_layout.setSpacing(5)
+
+            icon = QtWidgets.QLabel()
+            icon.setFixedSize(15, 15)
+            icon.setPixmap(svg_pixmap(icon_name, "#2F78FF", 15, 2.2))
+            tag_layout.addWidget(icon)
+
+            label = QtWidgets.QLabel(tag)
+            label.setStyleSheet(
+                "background: transparent; font-size: 12px; font-weight: 800; color: #17191F;"
+            )
+            tag_layout.addWidget(label)
+            tag_row.addWidget(tag_pill)
+        tag_row.addStretch(1)
+        layout.addLayout(tag_row)
 
     def mousePressEvent(self, event):
         if event.button() == QtCore.Qt.MouseButton.LeftButton:
@@ -107,59 +135,39 @@ class FeatureCard(QtWidgets.QFrame):
 class PlaceholderCard(QtWidgets.QFrame):
     clicked = QtCore.pyqtSignal(str)
 
-    def __init__(self, title, subtitle, parent=None):
+    def __init__(self, title, subtitle, icon_name="file-type", parent=None):
         super().__init__(parent)
         self.title = title
         self.setCursor(QtGui.QCursor(QtCore.Qt.CursorShape.PointingHandCursor))
-        self.setMinimumHeight(188)
+        self.setMinimumHeight(108)
         self.setObjectName("PlaceholderCardRoot")
         self.setStyleSheet(
             "QFrame#PlaceholderCardRoot {"
-            "background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #1D1A28, stop:1 #14121D);"
-            "border-radius: 26px; border: 1px solid #2B2840;"
+            "background: rgba(255,255,255,0.88);"
+            "border-radius: 22px; border: 1px solid rgba(255,255,255,0.72);"
             "}"
         )
 
         layout = QtWidgets.QVBoxLayout(self)
-        layout.setContentsMargins(18, 18, 18, 18)
-        layout.setSpacing(10)
+        layout.setContentsMargins(16, 14, 16, 14)
+        layout.setSpacing(6)
 
-        thumb = QtWidgets.QFrame()
-        thumb.setStyleSheet(
-            "background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #2A2737, stop:1 #171621);"
-            "border: 1px solid #302C42; border-radius: 22px;"
-        )
-        thumb_layout = QtWidgets.QVBoxLayout(thumb)
-        thumb_layout.setContentsMargins(16, 16, 16, 16)
-        thumb_layout.addStretch(1)
-        icon = QtWidgets.QLabel(title[:1])
-        icon.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
-        icon.setStyleSheet(
-            "background: rgba(255,255,255,0.10); border-radius: 24px; font-size: 26px; font-weight: 900;"
-            "min-width: 48px; min-height: 48px; color: white;"
-        )
-        thumb_layout.addWidget(icon, alignment=QtCore.Qt.AlignmentFlag.AlignLeft)
-        thumb_layout.addStretch(1)
-        layout.addWidget(thumb, stretch=1)
+        icon = QtWidgets.QLabel()
+        icon.setFixedSize(24, 24)
+        icon.setPixmap(svg_pixmap(icon_name, "#2F78FF", 22))
+        layout.addWidget(icon)
 
         title_label = QtWidgets.QLabel(title)
-        title_label.setStyleSheet("font-size: 18px; font-weight: 800; color: white; background: transparent;")
+        title_label.setStyleSheet("font-size: 14px; font-weight: 900; color: #17191F; background: transparent;")
         layout.addWidget(title_label)
 
         subtitle_label = QtWidgets.QLabel(subtitle)
         subtitle_label.setWordWrap(True)
-        subtitle_label.setStyleSheet("font-size: 12px; color: #A39BBC; background: transparent;")
+        subtitle_label.setStyleSheet("font-size: 12px; color: #7C828D; background: transparent;")
         layout.addWidget(subtitle_label)
-
-        status = QtWidgets.QLabel("即将支持")
-        status.setStyleSheet(
-            "background: rgba(255,255,255,0.06); border-radius: 11px; padding: 6px 10px;"
-            "font-size: 12px; color: #F2DCC4; font-weight: 700;"
-        )
-        layout.addWidget(status, alignment=QtCore.Qt.AlignmentFlag.AlignLeft)
+        layout.addStretch(1)
 
     def mousePressEvent(self, event):
         if event.button() == QtCore.Qt.MouseButton.LeftButton:
             self.clicked.emit(self.title)
         super().mousePressEvent(event)
-

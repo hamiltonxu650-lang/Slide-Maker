@@ -171,6 +171,12 @@ def find_app_icon() -> Path | None:
     )
 
 
+def find_app_display_icon() -> Path | None:
+    return _first_existing_asset("assets", "slide_maker_icon.png") or _first_existing_asset(
+        "assets", "slide_maker_icon.ico"
+    )
+
+
 def _first_existing_asset(*parts: str) -> Path | None:
     for root in get_runtime_roots():
         candidate = root.joinpath(*parts)
