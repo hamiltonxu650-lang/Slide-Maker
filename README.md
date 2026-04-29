@@ -1,145 +1,101 @@
 # Slide Maker
 
-[English](README.md) | [Simplified Chinese](README.zh-CN.md)
+[English](README.md) | [简体中文](README.zh-CN.md)
 
-Slide Maker is a local-first tool that turns PDFs, screenshots, scanned pages, and photographed slides into editable PowerPoint files.
+Slide Maker is a local-first desktop tool for converting PDFs, screenshots, scans, and photographed slides into editable PowerPoint files.
 
-## v0.4.0
+## v0.4.0 Refresh
 
-- A Mac desktop version has now been built and used as the visual baseline for the app.
-- The Windows desktop frontend has been rebuilt from the Mac frontend so both platforms share the same product UI.
-- Windows keeps its own platform shell: Windows title-bar controls, Windows-friendly font fallback, and Windows-only file picker behavior.
-- The blurry app icons in the title bar and sidebar were fixed by using the high-resolution PNG asset for in-app display.
-- Mac GUI launches now search bundled app resources plus common user Node locations, so high-fidelity output does not fall back just because the GUI process has a minimal `PATH`.
-- Desktop conversions now expose Pause, Resume, and Cancel controls in the main action area: the Start button changes to blue `暂停` while running, switches immediately to a gray play-button `继续` state when paused, and shows Cancel directly below it.
-- PDF conversion now passes the real page DPI into the Node layout engine, preventing oversized text boxes and off-slide text in high-fidelity output.
-- Text-based PDFs use the native PDF text layer before falling back to OCR, which avoids OCR word splitting and garbled PDF text.
-- PDF conversion now runs a compatibility preflight for oversized pages and stops safely instead of lowering DPI or shrinking the page.
+This refresh keeps the release line at `v0.4.0` and folds the Mac and Windows fixes back into the same version instead of creating a new version number.
+
+### Desktop UI
+
+- Mac now has a dedicated desktop build and is treated as a first-class target.
+- Windows uses the same redesigned frontend as the Mac build, while keeping Windows-specific chrome, font fallback, and file picker behavior.
+- Blurry title-bar and sidebar icons were replaced with the high-resolution app asset.
+- The main conversion button is now stateful:
+- Before conversion it shows `开始转换`.
+- While a task is running it becomes a blue `暂停` button with a pause icon.
+- After clicking pause it immediately becomes a gray `继续` button with a play icon.
+- Clicking continue switches it back to the blue `暂停` state.
+- `取消转换` is shown directly below the pause/continue button during active conversions.
+
+### Conversion Flow
+
+- Pause, resume, and cancel are wired into the worker control channel.
+- Cancel returns `转换已取消。` and does not pretend that a successful result was generated.
+- Mac GUI launches now search app resources and common GUI-missing Node locations such as `~/.local/bin`, Homebrew, and NVM before falling back to compatibility mode.
+- Packaged apps prefer bundled runtimes when available.
+
+### PDF And Image Quality
+
+- PDF conversion now passes the real page DPI into the Node layout engine.
+- PDF text-based pages use the native PDF text layer before falling back to OCR.
+- This fixes oversized text boxes, off-slide text, OCR word splitting, and garbled text in many text-based PDFs.
+- PDF DPI choices are unified as `100 / 150 / 200 / 300 DPI`.
+- Slide Maker does not silently lower a user-selected DPI.
+- Oversized pages are rejected by compatibility preflight instead of being downsampled or pushed into a memory crash.
 - Background repair requires LaMa and no longer silently falls back to OpenCV.
-- Packaged builds prefer bundled runtimes more reliably.
+- PNG/image conversion was retested in a restricted GUI-like environment and still produced high-fidelity Node output.
 
-## What It Can Do
+## Downloads
 
-- Convert PDF files into editable `.pptx`
-- Convert a single image into `.pptx`
-- Convert a folder of images into a multi-slide `.pptx`
-- Fix perspective for photographed slides before OCR
-- Rebuild text boxes from OCR results
-- Clean source text from the background with LaMa
-- Stay fully local once dependencies and models are ready
+Windows and Mac are separate downloads.
 
-## Best Way To Start
+### Windows
 
-### Windows Users
+Use the Windows portable package on Windows:
 
-Download the Windows build from the [Releases](https://github.com/hamiltonxu650-lang/Slide-Maker/releases) page or use the delivered Windows portable ZIP.
+1. Download the Windows ZIP.
+2. Extract it to any folder.
+3. Run `SlideMaker.exe`.
 
-1. Download the latest portable ZIP.
-2. Extract it anywhere you want.
-3. Launch `SlideMaker.exe`.
-4. Convert your PDF or images to `.pptx`.
+The Windows package contains the visible PyInstaller GUI shell plus a portable worker runtime. The worker runtime includes portable Python, OCR dependencies, Node, the PPTX layout engine, and the LaMa model.
 
-Notes:
+Important packaging note:
 
-- The packaged Windows build already includes the Node runtime used for the high-fidelity layout pass.
-- The packaged Windows build already includes the portable Python runtime, OCR runtime, and LaMa model.
-- If you prefer a custom model location, set `SLIDE_MAKER_LAMA_MODEL`.
+- A fully updated Windows GUI shell must be rebuilt on Windows with `build.ps1`.
+- macOS can refresh the Windows `portable_app` worker and source files, but it cannot natively rebuild the Windows `SlideMaker.exe`.
+- For a production Windows installer or portable ZIP, run the Windows build pipeline on Windows or a Windows VM.
 
-### Mac Users
+### Mac
 
-Use the Mac version when working on macOS. The Mac desktop frontend is complete, and the Windows frontend is now synced from that same design.
+Use the Mac `.app` package on macOS:
 
-From source, macOS can also run the same desktop entry point:
+1. Download the Mac app ZIP.
+2. Extract it.
+3. Open `slides maker.app`.
 
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-python -m pip install --upgrade pip setuptools wheel
-python -m pip install -r requirements.txt
-cd pptx-project && npm install && cd ..
-python ui_app.py
-```
+The Mac app includes its local Python environment, the LaMa model, the bundled Node runtime, and the refreshed desktop frontend.
 
 ## System Requirements
 
-### Windows Minimum Supported
+### Windows
 
 - Windows 10 or Windows 11, 64-bit
 - Intel or AMD x64 CPU
 - 16 GB RAM for normal use
-- 4 GB free disk space
+- 32 GB RAM recommended for larger PDFs
+- 4 GB or more free disk space
 - No GPU required
-- No separate Python or Node.js installation required
+- No separate Python or Node.js installation required for the packaged portable build
 
-### Windows Recommended
+### macOS
 
-- Windows 11, 64-bit
-- 16 GB to 32 GB RAM
-- SSD storage with 8 GB or more free space
-- Modern 4-core CPU or better
+- macOS 10.13 or newer for the packaged Mac app
+- Apple Silicon or Intel Mac supported by the bundled Python runtime
+- 16 GB RAM recommended
+- 4 GB or more free disk space
 
-### macOS Source Runtime
+### Source Runtime
 
-- macOS with Python 3.9 or newer
-- Node.js available on `PATH`, `~/.local/bin`, Homebrew, or NVM for the high-fidelity layout pass
-- LaMa model and OCR models configured in `.slide_maker_data/`
+- Python 3.9 or newer
+- Node.js for high-fidelity PPTX layout
+- `pptx-project` dependencies installed with `npm install`
+- LaMa model available as `big-lama.pt`
 - PyQt6 for the desktop UI
 
-### Tested Runtime Notes
-
-The packaged `v0.4.0` Windows release was previously tested as a self-contained portable bundle:
-
-- ZIP download size: about `753 MB`
-- Unpacked size: about `1.85 GB`
-- Includes `Python 3.10.10`, `Node v24.14.0`, `torch 2.10.0+cpu`, `onnxruntime 1.23.2`, and `big-lama.pt`
-- Single-image conversion peaked around `1.5 GB` working set in local tests
-- A 3-page PDF conversion peaked around `5.8 GB` working set in local tests
-
-If a user only has `8 GB RAM`, light single-image jobs may still work, but multi-page PDF conversion is not a safe target.
-
-The current Mac-side conversion flow was retested after the frontend sync:
-
-- Image conversion from `test/download.jpg` produced a valid 1-slide `.pptx`.
-- PDF conversion from `test/Quiz 1.pdf` produced a valid 3-slide `.pptx`.
-- Desktop worker conversion through `ui_app.py --worker` produced a valid `.pptx`.
-- The Mac run used RapidOCR, LaMa AI background repair, and Node high-fidelity layout rendering.
-
-The latest `v0.4.0` stability pass also retested the two reported failure paths:
-
-- PNG/image conversion was rerun with a restricted GUI-like environment (`PATH=/usr/bin:/bin`) and still produced Node high-fidelity output.
-- PDF DPI choices are now unified across the desktop and terminal UI as `100 / 150 / 200 / 300 DPI`.
-- In quality-preserving mode, pages above roughly `6 MP` or `3200 px` on the longest edge are treated as incompatible with the full OCR/LaMa path until the source PDF is cropped or split.
-- `100 DPI` is available as an explicit user-selected option; Slide Maker still never silently lowers a higher selected DPI.
-- `300 DPI` now uses the same compatibility preflight, so incompatible pages stop with a clear message instead of being downsampled or pushed into a memory crash.
-- `test/Barcelona_Redefined_page1.pdf` completed successfully at user-selected `100 DPI` with Node high-fidelity output.
-- `test/Quiz 1.pdf` at user-selected `300 DPI` was rejected during preflight because the first page would render to about `8.42 MP`.
-- `test/Quiz 1.pdf` at 200 DPI completed without OCR downscaling, without PDF DPI reduction, and with direct LaMa repair plus Node high-fidelity output.
-- `test/Barcelona_Redefined_page1.pdf` at 200 DPI was identified as incompatible with the no-downscale path because it renders to about `8.15 MP`.
-- An intentionally oversized synthetic PDF page is now rejected during compatibility preflight with a clear message instead of lowering DPI or exhausting memory.
-- Pause/resume control was verified through the worker control channel, and cancel was verified to return `转换已取消。` without producing a successful result payload.
-- `test/Istanbul.pdf` page 1 was retested at 200 DPI with native PDF text extraction and Node high-fidelity output; the generated PPTX uses the correct `13.33 x 7.5 in` slide size.
-
-The Windows portable package structure was checked on macOS, including `SlideMaker.exe`, bundled Python, bundled Node, OCR models, and `big-lama.pt`. A true Windows output run still needs to be executed on Windows or in a Windows VM because macOS cannot run the Windows executable directly.
-
-## Supported Workflows
-
-| Workflow | Windows | macOS | Linux | Notes |
-| --- | --- | --- | --- | --- |
-| Terminal UI | Yes | Yes | Yes | Good first setup flow |
-| CLI | Yes | Yes | Yes | Good for automation |
-| Desktop UI from source | Yes | Yes | Yes | Uses the new shared Mac/Windows frontend |
-| Local web app | Yes | Yes | Yes | Runs with FastAPI/Uvicorn |
-| Docker web deployment | Yes | Yes | Yes | For self-hosting the local web app |
-| Packaged desktop build | Yes | Yes | No | Windows users download Windows; Mac users use the Mac build |
-
 ## Quick Start From Source
-
-### Windows
-
-```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\setup_windows.ps1
-python terminal_ui.py
-```
 
 ### macOS / Linux
 
@@ -149,26 +105,25 @@ source .venv/bin/activate
 python -m pip install --upgrade pip setuptools wheel
 python -m pip install -r requirements.txt
 cd pptx-project && npm install && cd ..
-python terminal_ui.py
-```
-
-The terminal UI is the easiest source-based entry point because it can inspect the runtime, guide model setup, and run conversions interactively.
-
-## Other Entry Points
-
-### Desktop UI
-
-```bash
 python ui_app.py
 ```
 
-Demo-only preview:
+### Windows
 
-```bash
-python ui_app.py --demo
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\setup_windows.ps1
+python ui_app.py
 ```
 
-The desktop UI is the main user-facing surface after this update. It uses the rebuilt Mac design on both Mac and Windows, while preserving platform-specific window chrome and file support.
+## Other Entry Points
+
+### Terminal UI
+
+```bash
+python terminal_ui.py
+```
+
+The terminal UI is useful for setup checks, model checks, and guided conversion.
 
 ### CLI
 
@@ -197,7 +152,7 @@ Then open `http://127.0.0.1:7860`.
 
 ### LaMa Background Repair
 
-LaMa is required for background repair in `v0.4.0`.
+LaMa is required for background repair.
 
 Expected filename:
 
@@ -205,79 +160,85 @@ Expected filename:
 
 Supported locations:
 
-- `%LOCALAPPDATA%\\SlideMaker\\models\\lama\\big-lama.pt` for packaged Windows runs
+- `%LOCALAPPDATA%\SlideMaker\models\lama\big-lama.pt` for packaged Windows runs
 - `.slide_maker_data/models/lama/big-lama.pt` for source runs
 - `SLIDE_MAKER_LAMA_MODEL`
 - `LAMA_MODEL`
 
 If LaMa is missing, Slide Maker stops and asks you to configure the model first.
 
-Official upstream weight used by the dependency:
+Official upstream model:
 
 - [big-lama.pt](https://github.com/enesmsahin/simple-lama-inpainting/releases/download/v0.1.0/big-lama.pt)
 
 ### OCR Models
 
-RapidOCR is supported out of the box, and user-managed OCR models are also supported.
-
-Reserved slot:
+RapidOCR is used by default. Optional OCR model files can be managed under:
 
 - `.slide_maker_data/models/rapidocr/onnxruntime/`
 
-Optional helper:
+Helper script:
 
 ```bash
 python scripts/download_ocr_models.py
 ```
 
-## Rendering Modes
+## Build Notes
 
-Slide Maker can finish in two ways:
+### Windows Build
 
-- High fidelity: uses Node.js and `pptx-project/layout_engine.js` for better layout recovery
-- Compatibility: keeps the Python-generated `.pptx` when Node.js is unavailable or compatibility mode is selected
+Run on Windows:
 
-The packaged Windows build automatically prefers the bundled Node runtime.
+```powershell
+powershell -ExecutionPolicy Bypass -File .\build.ps1
+```
 
-On macOS source or app runs, Slide Maker also checks common GUI-missing Node locations such as `~/.local/bin/node`, Homebrew, and NVM before falling back to compatibility mode.
+The Windows build uses:
 
-## Packaging Notes
-
-Windows packaging is driven by:
-
-- `build.ps1`
 - `Slide_Maker.spec`
+- `build.ps1`
 - `Slide_Maker_Setup.iss`
 
-The current packaged app uses a hybrid layout:
+The packaged Windows structure is intentionally split:
 
-- a PyInstaller desktop shell for the visible GUI
-- a portable worker runtime under `portable_python`, `portable_site_packages`, and `portable_app`
+- `SlideMaker.exe` is the visible PyInstaller desktop shell.
+- `portable_python`, `portable_site_packages`, and `portable_app` run the heavier conversion worker.
 
-That design is intentional. It has been more reliable than running a fully frozen worker directly for `torch` and `onnxruntime` heavy jobs.
+This is more stable for `torch`, `onnxruntime`, LaMa, and OCR than freezing every worker dependency into one executable.
 
-The Mac build is now part of the project direction as a first-class desktop target. The frontend work done for Mac is the source of the current shared desktop UI, and Windows has been adapted to match it without changing the conversion pipeline.
+### Mac Package
 
-## Project Layout
+The Mac app is an `.app` bundle that launches the same desktop entry point from its bundled backend. The current local app package was refreshed from the latest source and verified with the pause/continue button flow.
+
+## Verification Summary
+
+- Desktop pause/resume/cancel UI state was verified in the PyQt UI.
+- Background worker pause/resume/cancel control was verified through the control channel.
+- PNG/image conversion was retested with a restricted GUI-like `PATH`.
+- PDF conversion was retested with native text extraction, real DPI layout, and high-fidelity Node output.
+- `test/Istanbul.pdf` page 1 at 200 DPI generated a correct `13.33 x 7.5 in` PPTX.
+- 300 DPI oversized PDF input is now rejected during preflight instead of exhausting memory.
+- The Windows portable structure was inspected on macOS, but a full Windows GUI rebuild must be done on Windows.
+
+## Repository Layout
 
 ```text
 .
-|-- terminal_ui.py
 |-- ui_app.py
-|-- run_pipeline.py
-|-- web_app.py
-|-- services/
 |-- ui/
-|-- scripts/
-|-- web/
+|-- services/
+|-- main.py
+|-- extract_pdf.py
+|-- image_processor.py
+|-- ppt_generator.py
 |-- pptx-project/
-|-- runtime/
+|-- scripts/
 |-- assets/
-`-- build.ps1
+|-- build.ps1
+|-- Slide_Maker.spec
+`-- Slide_Maker_Setup.iss
 ```
 
-## Status
+## Privacy
 
-- This repository is an actively developed product workbench, not a polished SDK.
-- The main focus right now is local conversion quality and consistent Windows/Mac desktop usability.
-- The web app is intended for local deployment by default; public hosting is a separate step.
+Slide Maker is designed to run locally. Files are processed on your machine after dependencies and models are installed or bundled.

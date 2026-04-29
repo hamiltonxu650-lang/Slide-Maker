@@ -8,6 +8,8 @@ import zipfile
 INCLUDE_FILES = {
     ".gitignore",
     "MAC_WINDOWS_TRANSFER_GUIDE.md",
+    "README.md",
+    "README.zh-CN.md",
     "Slide_Maker_Master_Development_Record.md",
     "Project_Development_Log.md",
     "PROJECT_SUMMARY.md",
