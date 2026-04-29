@@ -174,6 +174,7 @@ class StatusPanel(QtWidgets.QFrame):
         self.current_input_path = None
         self._syncing_scanner = False
         self._paused = False
+        self._task_state = "idle"
 
         root_layout = QtWidgets.QVBoxLayout(self)
         root_layout.setContentsMargins(0, 0, 0, 0)
@@ -292,7 +293,7 @@ class StatusPanel(QtWidgets.QFrame):
         self.convert_button.setIcon(svg_icon("play", "#FFFFFF", 18))
         self.convert_button.setIconSize(QtCore.QSize(18, 18))
         self.convert_button.setMinimumHeight(58)
-        self.convert_button.clicked.connect(self.pickFileRequested.emit)
+        self.convert_button.clicked.connect(self._emit_primary_action)
         card_layout.addWidget(self.convert_button)
 
         self.task_controls = QtWidgets.QFrame()
@@ -300,11 +301,6 @@ class StatusPanel(QtWidgets.QFrame):
         task_control_layout = QtWidgets.QHBoxLayout(self.task_controls)
         task_control_layout.setContentsMargins(0, 0, 0, 0)
         task_control_layout.setSpacing(10)
-
-        self.pause_button = QtWidgets.QPushButton("暂停")
-        self.pause_button.setObjectName("ActionButton")
-        self.pause_button.clicked.connect(self._emit_pause_or_resume)
-        task_control_layout.addWidget(self.pause_button, stretch=1)
 
         self.cancel_button = QtWidgets.QPushButton("取消转换")
         self.cancel_button.setObjectName("ActionButton")
@@ -416,23 +412,30 @@ class StatusPanel(QtWidgets.QFrame):
         if not self._syncing_scanner:
             self.scannerToggled.emit(enabled)
 
-    def _emit_pause_or_resume(self):
-        if self._paused:
-            self.resumeRequested.emit()
-        else:
+    def _set_primary_button(self, text, icon_name="play", enabled=True):
+        self.convert_button.setText(text)
+        self.convert_button.setIcon(svg_icon(icon_name, "#FFFFFF", 18))
+        self.convert_button.setEnabled(enabled)
+
+    def _emit_primary_action(self):
+        if self._task_state == "idle":
+            self.pickFileRequested.emit()
+        elif self._task_state == "running":
             self.pauseRequested.emit()
+        elif self._task_state == "paused":
+            self.resumeRequested.emit()
 
     def _set_result_actions_enabled(self, enabled):
         self.open_result_button.setEnabled(enabled)
         self.open_folder_button.setEnabled(enabled)
 
     def _set_task_controls_enabled(self, enabled):
-        self.pause_button.setEnabled(enabled)
         self.cancel_button.setEnabled(enabled)
 
     def set_paused(self, paused):
         self._paused = bool(paused)
-        self.pause_button.setText("继续" if self._paused else "暂停")
+        self._task_state = "paused" if self._paused else "running"
+        self._set_primary_button("继续转换" if self._paused else "暂停转换", "play" if self._paused else "pause")
         self.progress_meter.set_status(self.progress_meter._percent, "暂停中" if self._paused else "转换中")
         if self._paused:
             self.detail_label.setText("暂停请求已发送，当前页或当前阶段到达安全点后会停住。")
@@ -496,9 +499,8 @@ class StatusPanel(QtWidgets.QFrame):
         self.result_actions.hide()
         self.task_controls.show()
         self._paused = False
-        self.pause_button.setText("暂停")
-        self.convert_button.setEnabled(False)
-        self.convert_button.setText("转换中")
+        self._task_state = "running"
+        self._set_primary_button("暂停转换", "pause")
         self.detail_label.setText("正在检查文件与转换参数。")
         self.summary_label.setText(f"当前偏好：{preference_label}\n输出文件：{Path(output_path).name}")
         self.progress_meter.set_status(8, "校验输入")
@@ -530,11 +532,11 @@ class StatusPanel(QtWidgets.QFrame):
         else:
             self._set_notice("转换成功，可以直接打开结果文件或所在文件夹。", "success")
         self.convert_button.setEnabled(True)
-        self.convert_button.setText("开始转换")
+        self._task_state = "idle"
+        self._set_primary_button("开始转换", "play")
         self.task_controls.hide()
         self._set_task_controls_enabled(False)
         self._paused = False
-        self.pause_button.setText("暂停")
         self.retry_button.setEnabled(True)
         self.result_actions.show()
         self._set_result_actions_enabled(True)
@@ -547,11 +549,11 @@ class StatusPanel(QtWidgets.QFrame):
         self._set_steps_by_index(3, error=True)
         self._set_notice(message, "error")
         self.convert_button.setEnabled(True)
-        self.convert_button.setText("开始转换")
+        self._task_state = "idle"
+        self._set_primary_button("开始转换", "play")
         self.task_controls.hide()
         self._set_task_controls_enabled(False)
         self._paused = False
-        self.pause_button.setText("暂停")
         self.retry_button.setEnabled(True)
         self.result_actions.show()
         self._set_result_actions_enabled(bool(self.current_output_path and Path(self.current_output_path).exists()))
