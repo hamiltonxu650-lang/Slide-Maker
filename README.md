@@ -6,24 +6,16 @@ Slide Maker is a local-first desktop tool for converting PDFs, screenshots, scan
 
 ## v0.4.0 Refresh
 
-This refresh keeps the release line at `v0.4.0` and folds the Mac and Windows fixes back into the same version instead of creating a new version number.
+This refresh keeps the release line at `v0.4.0` and folds the Mac and Windows fixes back into the same version line instead of creating a new version number.
 
 ### Desktop UI
 
 - Mac now has a dedicated desktop build and is treated as a first-class target.
 - Windows uses the same redesigned frontend as the Mac build, while keeping Windows-specific chrome, font fallback, and file picker behavior.
 - Blurry title-bar and sidebar icons were replaced with the high-resolution app asset.
-- The main conversion button is now stateful:
-- Before conversion it shows `开始转换`.
-- While a task is running it becomes a blue `暂停` button with a pause icon.
-- After clicking pause it immediately becomes a gray `继续` button with a play icon.
-- Clicking continue switches it back to the blue `暂停` state.
-- `取消转换` is shown directly below the pause/continue button during active conversions.
 
 ### Conversion Flow
 
-- Pause, resume, and cancel are wired into the worker control channel.
-- Cancel returns `转换已取消。` and does not pretend that a successful result was generated.
 - Mac GUI launches now search app resources and common GUI-missing Node locations such as `~/.local/bin`, Homebrew, and NVM before falling back to compatibility mode.
 - Packaged apps prefer bundled runtimes when available.
 
@@ -38,35 +30,39 @@ This refresh keeps the release line at `v0.4.0` and folds the Mac and Windows fi
 - Background repair requires LaMa and no longer silently falls back to OpenCV.
 - PNG/image conversion was retested in a restricted GUI-like environment and still produced high-fidelity Node output.
 
-## Downloads
+## Download And Install
 
-Windows and Mac are separate downloads.
+Use the files that are actually attached to the public GitHub release. Do not use GitHub's green `Code` button as an installer; that button is for source code, not the packaged app.
 
 ### Windows
 
-Use the Windows portable package on Windows:
+The current public `v0.4.0` GitHub release includes a Windows portable package:
 
-1. Download the Windows ZIP.
-2. Extract it to any folder.
-3. Run `SlideMaker.exe`.
+- [Slide-Maker-v0.4.0-windows-portable.zip](https://github.com/hamiltonxu650-lang/Slide-Maker/releases/download/v0.4.0/Slide-Maker-v0.4.0-windows-portable.zip)
+- [Slide-Maker-v0.4.0-windows-portable.zip.sha256.txt](https://github.com/hamiltonxu650-lang/Slide-Maker/releases/download/v0.4.0/Slide-Maker-v0.4.0-windows-portable.zip.sha256.txt)
 
-The Windows package contains the visible PyInstaller GUI shell plus a portable worker runtime. The worker runtime includes portable Python, OCR dependencies, Node, the PPTX layout engine, and the LaMa model.
+Install steps:
 
-Important packaging note:
+1. Open the [v0.4.0 release page](https://github.com/hamiltonxu650-lang/Slide-Maker/releases/tag/v0.4.0).
+2. Expand `Assets`.
+3. Download `Slide-Maker-v0.4.0-windows-portable.zip`.
+4. Extract the package to any folder.
+5. Run `SlideMaker.exe`.
 
-- A fully updated Windows GUI shell must be rebuilt on Windows with `build.ps1`.
-- macOS can refresh the Windows `portable_app` worker and source files, but it cannot natively rebuild the Windows `SlideMaker.exe`.
-- For a production Windows installer or portable ZIP, run the Windows build pipeline on Windows or a Windows VM.
+The Windows portable package contains the visible PyInstaller GUI shell plus a portable worker runtime. The worker runtime includes portable Python, OCR dependencies, Node, the PPTX layout engine, and the LaMa model.
 
 ### Mac
 
-Use the Mac `.app` package on macOS:
+The Mac desktop app has been prepared locally, but the public GitHub `v0.4.0` release does not currently include a Mac `.app` asset. Until a Mac package is attached to the GitHub release, Mac users should run the app from source:
 
-1. Download the Mac app ZIP.
-2. Extract it.
-3. Open `slides maker.app`.
-
-The Mac app includes its local Python environment, the LaMa model, the bundled Node runtime, and the refreshed desktop frontend.
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip setuptools wheel
+python -m pip install -r requirements.txt
+cd pptx-project && npm install && cd ..
+python ui_app.py
+```
 
 ## System Requirements
 
@@ -208,12 +204,10 @@ This is more stable for `torch`, `onnxruntime`, LaMa, and OCR than freezing ever
 
 ### Mac Package
 
-The Mac app is an `.app` bundle that launches the same desktop entry point from its bundled backend. The current local app package was refreshed from the latest source and verified with the pause/continue button flow.
+The Mac app can be packaged as an `.app` bundle that launches the same desktop entry point from its bundled backend. The Mac package should be attached to the GitHub release before the README advertises it as a public download.
 
 ## Verification Summary
 
-- Desktop pause/resume/cancel UI state was verified in the PyQt UI.
-- Background worker pause/resume/cancel control was verified through the control channel.
 - PNG/image conversion was retested with a restricted GUI-like `PATH`.
 - PDF conversion was retested with native text extraction, real DPI layout, and high-fidelity Node output.
 - `test/Istanbul.pdf` page 1 at 200 DPI generated a correct `13.33 x 7.5 in` PPTX.
