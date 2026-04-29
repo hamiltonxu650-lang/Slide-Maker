@@ -303,7 +303,11 @@ class StatusPanel(QtWidgets.QFrame):
         task_control_layout.setSpacing(10)
 
         self.cancel_button = QtWidgets.QPushButton("取消转换")
-        self.cancel_button.setObjectName("ActionButton")
+        self.cancel_button.setObjectName("CancelActionButton")
+        self.cancel_button.setCursor(QtCore.Qt.CursorShape.PointingHandCursor)
+        self.cancel_button.setIcon(svg_icon("x", "#FFFFFF", 18))
+        self.cancel_button.setIconSize(QtCore.QSize(18, 18))
+        self.cancel_button.setMinimumHeight(58)
         self.cancel_button.clicked.connect(self.cancelRequested.emit)
         task_control_layout.addWidget(self.cancel_button, stretch=1)
         card_layout.addWidget(self.task_controls)
@@ -412,25 +416,33 @@ class StatusPanel(QtWidgets.QFrame):
         if not self._syncing_scanner:
             self.scannerToggled.emit(enabled)
 
-    def _set_primary_button(self, text, icon_name="play", enabled=True):
+    def _set_primary_button(self, text, icon_name="play", enabled=True, object_name="PrimaryActionButton"):
+        self.convert_button.setStyleSheet("")
+        if self.convert_button.objectName() != object_name:
+            self.convert_button.setObjectName(object_name)
+            self.convert_button.style().unpolish(self.convert_button)
+            self.convert_button.style().polish(self.convert_button)
         self.convert_button.setText(text)
         self.convert_button.setIcon(svg_icon(icon_name, "#FFFFFF", 18))
         self.convert_button.setEnabled(enabled)
+        self.convert_button.update()
 
     def _sync_primary_button_state(self):
         if self._task_state == "running":
-            self._set_primary_button("暂停", "pause")
+            self._set_primary_button("暂停", "pause", object_name="PrimaryActionButton")
         elif self._task_state == "paused":
-            self._set_primary_button("继续", "play")
+            self._set_primary_button("继续", "play", object_name="PausedActionButton")
         else:
-            self._set_primary_button("开始转换", "play")
+            self._set_primary_button("开始转换", "play", object_name="PrimaryActionButton")
 
     def _emit_primary_action(self):
         if self._task_state == "idle":
             self.pickFileRequested.emit()
         elif self._task_state == "running":
+            self.set_paused(True)
             self.pauseRequested.emit()
         elif self._task_state == "paused":
+            self.set_paused(False)
             self.resumeRequested.emit()
 
     def _set_result_actions_enabled(self, enabled):

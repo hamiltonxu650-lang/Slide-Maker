@@ -520,6 +520,37 @@ QPushButton#PrimaryActionButton {
 QPushButton#PrimaryActionButton:hover {
     background: #2369EA;
 }
+QPushButton#PrimaryActionButton:disabled {
+    background: rgba(47, 120, 255, 0.65);
+}
+QPushButton#PausedActionButton {
+    background: #9AA2B1;
+    border: none;
+    border-radius: 18px;
+    padding: 12px 16px;
+    color: #FFFFFF;
+    font-weight: 900;
+}
+QPushButton#PausedActionButton:hover {
+    background: #7C828D;
+}
+QPushButton#PausedActionButton:disabled {
+    background: rgba(154, 162, 177, 0.65);
+}
+QPushButton#CancelActionButton {
+    background: #FF4757;
+    border: none;
+    border-radius: 18px;
+    padding: 12px 16px;
+    color: #FFFFFF;
+    font-weight: 900;
+}
+QPushButton#CancelActionButton:hover {
+    background: #E8364A;
+}
+QPushButton#CancelActionButton:disabled {
+    background: rgba(255, 71, 87, 0.55);
+}
 QPushButton#SecondaryTextButton {
     background: #FFFFFF;
     border: 1px solid rgba(24, 27, 34, 0.08);

@@ -11,7 +11,7 @@ Slide Maker is a local-first tool that turns PDFs, screenshots, scanned pages, a
 - Windows keeps its own platform shell: Windows title-bar controls, Windows-friendly font fallback, and Windows-only file picker behavior.
 - The blurry app icons in the title bar and sidebar were fixed by using the high-resolution PNG asset for in-app display.
 - Mac GUI launches now search bundled app resources plus common user Node locations, so high-fidelity output does not fall back just because the GUI process has a minimal `PATH`.
-- Desktop conversions now expose Pause, Resume, and Cancel controls in the main action area: the Start button changes to `暂停` while running and `继续` while paused, with Cancel shown directly below it.
+- Desktop conversions now expose Pause, Resume, and Cancel controls in the main action area: the Start button changes to blue `暂停` while running, switches immediately to a gray play-button `继续` state when paused, and shows Cancel directly below it.
 - PDF conversion now passes the real page DPI into the Node layout engine, preventing oversized text boxes and off-slide text in high-fidelity output.
 - Text-based PDFs use the native PDF text layer before falling back to OCR, which avoids OCR word splitting and garbled PDF text.
 - PDF conversion now runs a compatibility preflight for oversized pages and stops safely instead of lowering DPI or shrinking the page.
