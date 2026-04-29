@@ -160,6 +160,8 @@ def run_conversion(
             dpi=options["pdf_dpi"],
             progress_cb=on_pdf_progress,
             log_cb=logger.emit,
+            max_pixels=options.get("pdf_max_render_pixels", 10_000_000),
+            max_edge=options.get("pdf_max_render_edge", 5000),
         )
         source_processed_path = str(temp_extract_dir)
     else:

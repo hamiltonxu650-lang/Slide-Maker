@@ -2,8 +2,9 @@ import cv2
 import numpy as np
 import os
 
-LAMA_MAX_PIXELS = 12_000_000
-LAMA_MAX_DIMENSION = 4096
+LAMA_MAX_PIXELS = 6_000_000
+LAMA_MAX_DIMENSION = 3200
+LAMA_WORKING_MAX_DIMENSION = 1600
 
 
 def _emit_log(log_cb, message):
@@ -146,8 +147,8 @@ def inpaint_background(image_path, text_data, output_path, use_ai=True, cleanup_
         if oversized_for_lama:
             _emit_log(log_cb, "[*] Image too large for direct LaMa AI. Using smart downscale-composite LaMa.")
             try:
-                # Downscale to max dimension of 2048 to keep LaMa stable on large pages.
-                scale = 2048.0 / max(result.shape[0], result.shape[1])
+                # Keep the neural repair pass bounded; blend the repaired regions back at full size.
+                scale = LAMA_WORKING_MAX_DIMENSION / max(result.shape[0], result.shape[1])
                 new_w = max(1, int(round(result.shape[1] * scale)))
                 new_h = max(1, int(round(result.shape[0] * scale)))
 
@@ -160,10 +161,16 @@ def inpaint_background(image_path, text_data, output_path, use_ai=True, cleanup_
 
                 # Upscale back to original size and blend only on the masked region.
                 big_clean = cv2.resize(small_clean, (result.shape[1], result.shape[0]), interpolation=cv2.INTER_CUBIC)
-                float_mask = cv2.GaussianBlur(full_mask, (11, 11), 0).astype(np.float32) / 255.0
-                float_mask = np.expand_dims(float_mask, axis=2)
+                alpha = cv2.GaussianBlur(full_mask, (11, 11), 0).astype(np.float32) / 255.0
+                inverse_alpha = 1.0 - alpha
+                blended = result.copy()
+                for channel in range(3):
+                    blended[:, :, channel] = (
+                        result[:, :, channel].astype(np.float32) * inverse_alpha
+                        + big_clean[:, :, channel].astype(np.float32) * alpha
+                    ).astype(np.uint8)
 
-                result = (result * (1.0 - float_mask) + big_clean * float_mask).astype(np.uint8)
+                result = blended
                 _emit_log(log_cb, "[*] Background repair backend: LaMa AI (Downscaled composite)")
             except Exception as exc:
                 raise RuntimeError(f"LaMa AI failed during downscaled background repair: {exc}") from exc

@@ -10,6 +10,8 @@ Slide Maker 是一个本地优先的工具，用来把 PDF、截图、扫描页�
 - Windows 桌面前端已经按 Mac 版重做，两端保持同一套产品界面。
 - Windows 端保留自己的平台适配：Windows 标题栏按钮、Windows 字体回退、Windows 文件选择入口。
 - 修复了左上角标题栏和侧栏图标发糊的问题，现在界面显示优先使用高清 PNG 图标。
+- Mac 图形界面启动时现在会额外查找 App 内资源、`~/.local/bin`、Homebrew 和 NVM 里的 Node，避免因为 GUI 环境 `PATH` 太少而误切到兼容模式。
+- PDF 转换现在会限制超大页面的渲染尺寸，并给大图 LaMa 修复加内存保护，避免超大 PDF 把系统内存打爆。
 - 背景修复现在强制使用 LaMa，不再悄悄回退到 OpenCV。
 - 打包版会更稳定地优先使用内置运行时。
 
@@ -76,7 +78,7 @@ python ui_app.py
 ### macOS 源码运行环境
 
 - macOS，Python 3.9 或更高版本
-- Node.js 在 `PATH` 中，用于高保真排版
+- Node.js 在 `PATH`、`~/.local/bin`、Homebrew 或 NVM 中，用于高保真排版
 - LaMa 模型和 OCR 模型已经放入 `.slide_maker_data/`
 - 桌面 UI 需要 PyQt6
 
@@ -98,6 +100,12 @@ python ui_app.py
 - 使用 `test/Quiz 1.pdf` 转换 PDF，成功输出 3 页 `.pptx`。
 - 使用 `ui_app.py --worker` 跑桌面端实际调用的 worker 流程，成功输出 `.pptx`。
 - Mac 端测试完整走通了 RapidOCR、LaMa AI 背景修复和 Node 高保真排版。
+
+这次 `v0.4.0` 稳定性修复又专门复测了你截图里的两个问题：
+
+- PNG / 图片转换在接近 Mac GUI 的受限环境里重新跑过，`PATH=/usr/bin:/bin` 时仍然成功走 Node 高保真输出。
+- PDF 转换使用 `test/Barcelona_Redefined_page1.pdf` 重新跑过，RapidOCR、LaMa 降尺度修复和 Node 高保真输出都正常。
+- 额外构造了一个超大页面 PDF，程序会先自动降低渲染 DPI，再进入 OCR / LaMa，最后成功输出 `.pptx`，没有继续无限吃内存。
 
 Windows 便携包在 macOS 上检查了包结构，包括 `SlideMaker.exe`、便携 Python、内置 Node、OCR 模型和 `big-lama.pt`。因为 macOS 不能直接执行 Windows `.exe`，最终 Windows 输出测试仍需要在 Windows 机器或 Windows 虚拟机里跑一次。
 
@@ -218,6 +226,8 @@ Slide Maker 最终有两种输出路径：
 - 兼容模式：当 Node.js 不可用，或者你主动选择兼容模式时，保留 Python 生成的 `.pptx`
 
 Windows 打包版会自动优先使用内置 Node 运行时。
+
+Mac 源码版或 App 启动时，也会额外检查 `~/.local/bin/node`、Homebrew 和 NVM 等 GUI 环境里经常缺失的 Node 位置，然后才会切换到兼容模式。
 
 ## 打包说明
 

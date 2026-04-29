@@ -17,9 +17,20 @@ def get_runtime_roots() -> list[Path]:
     executable_root = Path(sys.executable).resolve().parent
     roots.append(executable_root)
 
+    if executable_root.name == "MacOS" and executable_root.parent.name == "Contents":
+        contents_root = executable_root.parent
+        roots.extend(
+            [
+                contents_root,
+                contents_root / "Resources",
+                contents_root / "Resources" / "portable_app",
+            ]
+        )
+
     meipass = getattr(sys, "_MEIPASS", None)
     if meipass:
-        roots.append(Path(meipass))
+        meipass_root = Path(meipass)
+        roots.extend([meipass_root, meipass_root.parent])
 
     roots.append(Path(__file__).resolve().parents[1])
 
@@ -148,9 +159,12 @@ def preload_runtime_libraries() -> dict[str, list[str]]:
 
 def detect_project_root() -> Path:
     if getattr(sys, "frozen", False):
-        portable_root = Path(sys.executable).resolve().parent / "portable_app"
-        if portable_root.exists():
-            return portable_root
+        for root in get_runtime_roots():
+            portable_root = root / "portable_app"
+            if (portable_root / "pptx-project").exists():
+                return portable_root
+            if (root / "pptx-project").exists():
+                return root
     for root in get_runtime_roots():
         if (root / "pptx-project").exists():
             return root
@@ -230,11 +244,19 @@ def find_node_executable(project_root: Path | None = None):
     candidates.extend(
         [
             project_root / "runtime" / "node",
+            project_root / "_internal" / "runtime" / "node",
+            Path.home() / ".local" / "bin" / "node",
+            Path.home() / "bin" / "node",
             Path("/opt/homebrew/bin/node"),
             Path("/usr/local/bin/node"),
             Path("/usr/bin/node"),
         ]
     )
+
+    if os.name != "nt":
+        nvm_root = Path.home() / ".nvm" / "versions" / "node"
+        if nvm_root.exists():
+            candidates.extend(sorted(nvm_root.glob("v*/bin/node"), reverse=True))
 
     if os.name == "nt":
         candidates.extend(

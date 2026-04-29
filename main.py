@@ -1,4 +1,6 @@
 import argparse
+import gc
+from math import sqrt
 import os
 from pathlib import Path
 
@@ -9,6 +11,8 @@ from utils import estimate_font_size, extract_text_color
 
 
 DEFAULT_OCR_MAX_LONG_EDGE = 3200
+DEFAULT_MAX_SOURCE_PIXELS = 12_000_000
+DEFAULT_MAX_SOURCE_EDGE = 5000
 
 
 def _emit_log(log_cb, message):
@@ -41,6 +45,43 @@ def _build_ocr_input(img_path, cv_img, working_dir, index, log_cb, options):
         f"[*] OCR analysis image resized to {resized.shape[1]}x{resized.shape[0]} for faster recognition.",
     )
     return ocr_input_path, (1.0 / resize_scale)
+
+
+def _prepare_processing_image(img_path, cv_img, working_dir, index, log_cb, options, force_write=False):
+    max_pixels = int(options.get("max_source_pixels", DEFAULT_MAX_SOURCE_PIXELS) or 0)
+    max_edge = int(options.get("max_source_edge", DEFAULT_MAX_SOURCE_EDGE) or 0)
+    img_h, img_w = cv_img.shape[:2]
+    scale = 1.0
+
+    if max_pixels and img_w * img_h > max_pixels:
+        scale = min(scale, sqrt(float(max_pixels) / float(img_w * img_h)))
+    if max_edge and max(img_w, img_h) > max_edge:
+        scale = min(scale, float(max_edge) / float(max(img_w, img_h)))
+
+    if scale < 0.999:
+        resized = cv2.resize(
+            cv_img,
+            (max(1, int(round(img_w * scale))), max(1, int(round(img_h * scale)))),
+            interpolation=cv2.INTER_AREA,
+        )
+        prepared_path = os.path.join(working_dir, f"source_input_{index}.png")
+        cv2.imencode(".png", resized)[1].tofile(prepared_path)
+        _emit_log(
+            log_cb,
+            (
+                "[!] Source page is very large; resized to "
+                f"{resized.shape[1]}x{resized.shape[0]} before OCR/background repair "
+                "to keep memory usage stable."
+            ),
+        )
+        return prepared_path, resized
+
+    if force_write:
+        prepared_path = os.path.join(working_dir, f"source_input_{index}.png")
+        cv2.imencode(".png", cv_img)[1].tofile(prepared_path)
+        return prepared_path, cv_img
+
+    return img_path, cv_img
 
 
 def _scale_text_data(text_data, scale_factor):
@@ -122,10 +163,23 @@ def process_images_to_ppt(
         cv_img = cv2.imdecode(np.fromfile(img_path, dtype=np.uint8), cv2.IMREAD_COLOR)
         if cv_img is None:
             raise FileNotFoundError(f"Cannot read image: {img_path}")
-            
+
+        source_image_path = img_path
+        scanner_applied = False
         if options.get("enable_document_scanner"):
             from scanner_engine import scan_document
             cv_img = scan_document(cv_img, log_cb=log_cb)
+            scanner_applied = True
+
+        source_image_path, cv_img = _prepare_processing_image(
+            source_image_path,
+            cv_img,
+            working_dir,
+            i,
+            log_cb,
+            options,
+            force_write=scanner_applied,
+        )
 
         img_h, img_w = cv_img.shape[:2]
 
@@ -138,7 +192,7 @@ def process_images_to_ppt(
             )
 
         ocr_input_path, ocr_scale_factor = _build_ocr_input(
-            img_path,
+            source_image_path,
             cv_img,
             working_dir,
             i,
@@ -158,7 +212,7 @@ def process_images_to_ppt(
         clean_bg_filename = f"clean_bg_{i}.png"
         clean_bg_path = os.path.join(working_dir, clean_bg_filename)
         inpaint_background(
-            img_path,
+            source_image_path,
             text_data,
             clean_bg_path,
             cleanup_options=cleanup_options,
@@ -175,6 +229,8 @@ def process_images_to_ppt(
                 "background_image": clean_bg_path,
             }
         )
+        del cv_img
+        gc.collect()
 
     import json
 

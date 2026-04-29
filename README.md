@@ -10,6 +10,8 @@ Slide Maker is a local-first tool that turns PDFs, screenshots, scanned pages, a
 - The Windows desktop frontend has been rebuilt from the Mac frontend so both platforms share the same product UI.
 - Windows keeps its own platform shell: Windows title-bar controls, Windows-friendly font fallback, and Windows-only file picker behavior.
 - The blurry app icons in the title bar and sidebar were fixed by using the high-resolution PNG asset for in-app display.
+- Mac GUI launches now search bundled app resources plus common user Node locations, so high-fidelity output does not fall back just because the GUI process has a minimal `PATH`.
+- PDF conversion now caps oversized page rendering and large LaMa repair passes to avoid memory exhaustion on huge PDFs.
 - Background repair requires LaMa and no longer silently falls back to OpenCV.
 - Packaged builds prefer bundled runtimes more reliably.
 
@@ -76,7 +78,7 @@ python ui_app.py
 ### macOS Source Runtime
 
 - macOS with Python 3.9 or newer
-- Node.js available on `PATH` for the high-fidelity layout pass
+- Node.js available on `PATH`, `~/.local/bin`, Homebrew, or NVM for the high-fidelity layout pass
 - LaMa model and OCR models configured in `.slide_maker_data/`
 - PyQt6 for the desktop UI
 
@@ -98,6 +100,12 @@ The current Mac-side conversion flow was retested after the frontend sync:
 - PDF conversion from `test/Quiz 1.pdf` produced a valid 3-slide `.pptx`.
 - Desktop worker conversion through `ui_app.py --worker` produced a valid `.pptx`.
 - The Mac run used RapidOCR, LaMa AI background repair, and Node high-fidelity layout rendering.
+
+The latest `v0.4.0` stability pass also retested the two reported failure paths:
+
+- PNG/image conversion was rerun with a restricted GUI-like environment (`PATH=/usr/bin:/bin`) and still produced Node high-fidelity output.
+- PDF conversion from `test/Barcelona_Redefined_page1.pdf` completed with RapidOCR, LaMa downscale-composite repair, and Node high-fidelity output.
+- An intentionally oversized synthetic PDF page was automatically rendered at a safe lower DPI before OCR/LaMa, then exported successfully as `.pptx`.
 
 The Windows portable package structure was checked on macOS, including `SlideMaker.exe`, bundled Python, bundled Node, OCR models, and `big-lama.pt`. A true Windows output run still needs to be executed on Windows or in a Windows VM because macOS cannot run the Windows executable directly.
 
@@ -218,6 +226,8 @@ Slide Maker can finish in two ways:
 - Compatibility: keeps the Python-generated `.pptx` when Node.js is unavailable or compatibility mode is selected
 
 The packaged Windows build automatically prefers the bundled Node runtime.
+
+On macOS source or app runs, Slide Maker also checks common GUI-missing Node locations such as `~/.local/bin/node`, Homebrew, and NVM before falling back to compatibility mode.
 
 ## Packaging Notes
 
