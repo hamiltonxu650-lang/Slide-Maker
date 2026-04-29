@@ -23,6 +23,7 @@ def build_parser():
     parser.add_argument("--settings-json", default="{}", help=argparse.SUPPRESS)
     parser.add_argument("--preferences-json", default="{}", help=argparse.SUPPRESS)
     parser.add_argument("--channel-file", default=None, help=argparse.SUPPRESS)
+    parser.add_argument("--control-file", default=None, help=argparse.SUPPRESS)
     parser.add_argument("--close-after-ms", type=int, default=None, help=argparse.SUPPRESS)
     return parser
 
@@ -76,6 +77,7 @@ def main():
                 settings_json=args.settings_json,
                 preferences_json=args.preferences_json,
                 channel_file=args.channel_file,
+                control_file=args.control_file,
             )
         except Exception as exc:
             if bootstrap_log is not None:

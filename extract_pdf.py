@@ -56,10 +56,13 @@ def extract_pdf_to_images(
     dpi=200,
     progress_cb=None,
     log_cb=None,
+    control_cb=None,
     max_pixels=DEFAULT_MAX_RENDER_PIXELS,
     max_edge=DEFAULT_MAX_RENDER_EDGE,
 ):
     _emit_log(log_cb, f"Opening PDF: {pdf_path}")
+    if control_cb:
+        control_cb("提取页面", 15, "准备拆分 PDF 页面")
     doc = fitz.open(pdf_path)
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
@@ -67,6 +70,8 @@ def extract_pdf_to_images(
     try:
         total_pages = len(doc)
         for i in range(total_pages):
+            if control_cb:
+                control_cb("提取页面", 15, f"等待提取第 {i + 1}/{total_pages} 页")
             _emit_log(log_cb, f"Extracting PDF page {i + 1}/{total_pages}...")
             page = doc.load_page(i)
             scale, render_w, render_h = _render_plan(page, dpi)
@@ -78,6 +83,8 @@ def extract_pdf_to_images(
             _emit_log(log_cb, f"  Saved {out_file}")
             if progress_cb:
                 progress_cb(i + 1, total_pages, out_file)
+            if control_cb:
+                control_cb("提取页面", 15 + int(((i + 1) / max(total_pages, 1)) * 15), f"已提取第 {i + 1}/{total_pages} 页")
     finally:
         doc.close()
 

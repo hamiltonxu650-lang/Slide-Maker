@@ -11,6 +11,7 @@ Slide Maker 是一个本地优先的工具，用来把 PDF、截图、扫描页�
 - Windows 端保留自己的平台适配：Windows 标题栏按钮、Windows 字体回退、Windows 文件选择入口。
 - 修复了左上角标题栏和侧栏图标发糊的问题，现在界面显示优先使用高清 PNG 图标。
 - Mac 图形界面启动时现在会额外查找 App 内资源、`~/.local/bin`、Homebrew 和 NVM 里的 Node，避免因为 GUI 环境 `PATH` 太少而误切到兼容模式。
+- 桌面转换流程现在加入了暂停、继续和取消按钮。暂停会在安全检查点停住；取消会先通知 worker 停止，必要时再终止 worker。
 - PDF 转换现在会先做超大页面兼容性预检；不兼容时安全停止，不会降低 DPI 或缩小页面。
 - 背景修复现在强制使用 LaMa，不再悄悄回退到 OpenCV。
 - 打包版会更稳定地优先使用内置运行时。
@@ -113,6 +114,7 @@ python ui_app.py
 - `test/Quiz 1.pdf` 在 200 DPI 下已经全质量跑通：不降 PDF DPI、不缩 OCR 输入，使用 LaMa 全尺寸修复和 Node 高保真输出。
 - `test/Barcelona_Redefined_page1.pdf` 在 200 DPI 下约为 `8.15 MP`，已经被识别为不适合全尺寸 OCR / LaMa 链路的输入。
 - 额外构造了一个超大页面 PDF，现在会在兼容性预检阶段明确拒绝并提示原因，不会降低 DPI，也不会继续无限吃内存。
+- 暂停 / 继续已经通过 worker 控制通道验证；取消已验证会返回 `转换已取消。`，不会伪装成成功结果。
 
 Windows 便携包在 macOS 上检查了包结构，包括 `SlideMaker.exe`、便携 Python、内置 Node、OCR 模型和 `big-lama.pt`。因为 macOS 不能直接执行 Windows `.exe`，最终 Windows 输出测试仍需要在 Windows 机器或 Windows 虚拟机里跑一次。
 

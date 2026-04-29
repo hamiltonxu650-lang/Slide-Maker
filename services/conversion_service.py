@@ -5,6 +5,7 @@ from pathlib import Path
 import shutil
 import subprocess
 import sys
+import time
 
 from services.app_models import (
     APP_BRAND,
@@ -18,6 +19,7 @@ from services.app_models import (
     describe_lama_model_setup,
 )
 from services.runtime_env import describe_runtime_environment, detect_project_root, find_node_executable
+from services.conversion_control import ConversionCancelled
 
 
 SUPPORTED_IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg"}
@@ -50,6 +52,11 @@ def _emit_progress(progress_cb, stage, percent, detail):
         progress_cb(stage, int(percent), detail)
 
 
+def _check_control(control_cb, stage, percent, detail):
+    if control_cb:
+        control_cb(stage, int(percent), detail)
+
+
 def infer_input_kind(input_path):
     if Path(input_path).is_dir():
         return "image"
@@ -67,18 +74,38 @@ def _resolve_output_path(input_path: str, output_path: str) -> str:
     return str(Path(input_path).with_name(f"{Path(input_path).stem}_Result.pptx"))
 
 
-def _run_layout_engine(node_executable, js_engine, ocr_data_path, output_path, cwd, logger):
+def _run_layout_engine(node_executable, js_engine, ocr_data_path, output_path, cwd, logger, control_cb=None):
     command = [node_executable, js_engine, ocr_data_path, output_path]
-    completed = subprocess.run(
+    completed = subprocess.Popen(
         command,
         cwd=str(cwd),
-        check=True,
         text=True,
-        capture_output=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
         encoding="utf-8",
         errors="replace",
     )
-    for stream in (completed.stdout, completed.stderr):
+    try:
+        while completed.poll() is None:
+            _check_control(control_cb, "生成 PPTX", 92, "正在执行高保真排版")
+            time.sleep(0.2)
+    except ConversionCancelled:
+        completed.terminate()
+        try:
+            completed.wait(timeout=3)
+        except subprocess.TimeoutExpired:
+            completed.kill()
+        raise
+
+    stdout, stderr = completed.communicate()
+    if completed.returncode != 0:
+        raise subprocess.CalledProcessError(
+            completed.returncode,
+            command,
+            output=stdout,
+            stderr=stderr,
+        )
+    for stream in (stdout, stderr):
         if not stream:
             continue
         for line in stream.splitlines():
@@ -96,6 +123,7 @@ def run_conversion(
     log_cb=None,
     settings: AppSettings | None = None,
     preferences: TaskPreferences | None = None,
+    control_cb=None,
 ):
     project_root = detect_project_root()
     input_path = str(Path(input_path).expanduser().resolve())
@@ -120,6 +148,7 @@ def run_conversion(
     if input_kind == "image" and not Path(input_path).is_dir() and Path(input_path).suffix.lower() not in SUPPORTED_IMAGE_EXTENSIONS:
         raise ConversionError("图片输入目前仅支持 PNG、JPG、JPEG。")
 
+    _check_control(control_cb, "校验输入", 5, "正在检查输入路径与输出位置")
     _emit_progress(progress_cb, "校验输入", 5, "正在检查输入路径与输出位置")
     Path(output_path).parent.mkdir(parents=True, exist_ok=True)
 
@@ -160,13 +189,16 @@ def run_conversion(
             dpi=options["pdf_dpi"],
             progress_cb=on_pdf_progress,
             log_cb=logger.emit,
+            control_cb=control_cb,
             max_pixels=options.get("pdf_max_render_pixels", 10_000_000),
             max_edge=options.get("pdf_max_render_edge", 5000),
         )
         source_processed_path = str(temp_extract_dir)
     else:
+        _check_control(control_cb, "提取页面", 30, "图片输入无需拆页，直接进入识别")
         _emit_progress(progress_cb, "提取页面", 30, "图片输入无需拆页，直接进入识别")
 
+    _check_control(control_cb, "OCR/去字", 35, "开始执行 OCR 与背景修复")
     _emit_progress(progress_cb, "OCR/去字", 35, "开始执行 OCR 与背景修复")
 
     def on_slide_progress(done, total, message):
@@ -181,6 +213,7 @@ def run_conversion(
         output_ppt=output_path,
         slide_progress_cb=on_slide_progress,
         log_cb=logger.emit,
+        control_cb=control_cb,
         options=options,
         working_dir=str(working_dir),
     )
@@ -188,6 +221,7 @@ def run_conversion(
     requested_renderer = options["preferred_renderer"]
     fallback_notice = ""
     renderer = "python"
+    _check_control(control_cb, "生成 PPTX", 80, "正在生成可编辑 PPTX")
     _emit_progress(progress_cb, "生成 PPTX", 80, "正在生成可编辑 PPTX")
 
     if not process_result.get("ocr_runtime_available", True):
@@ -204,6 +238,7 @@ def run_conversion(
             logger.emit(f"[*] Using Node runtime: {node_executable}")
             js_engine = str(project_root / "pptx-project" / "layout_engine.js")
             ocr_data = str(working_dir / "ocr_data.json")
+            _check_control(control_cb, "生成 PPTX", 92, "正在执行高保真排版")
             _emit_progress(progress_cb, "生成 PPTX", 92, "正在执行高保真排版")
             _run_layout_engine(
                 node_executable,
@@ -212,11 +247,13 @@ def run_conversion(
                 output_path,
                 project_root / "pptx-project",
                 logger,
+                control_cb=control_cb,
             )
             renderer = "node"
 
     fallback_notice = "\n".join(message for message in fallback_messages if message)
 
+    _check_control(control_cb, "完成", 100, "转换完成，可以打开结果文件")
     _emit_progress(progress_cb, "完成", 100, "转换完成，可以打开结果文件")
 
     if auto_open and os.path.exists(output_path):

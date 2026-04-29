@@ -11,6 +11,7 @@ Slide Maker is a local-first tool that turns PDFs, screenshots, scanned pages, a
 - Windows keeps its own platform shell: Windows title-bar controls, Windows-friendly font fallback, and Windows-only file picker behavior.
 - The blurry app icons in the title bar and sidebar were fixed by using the high-resolution PNG asset for in-app display.
 - Mac GUI launches now search bundled app resources plus common user Node locations, so high-fidelity output does not fall back just because the GUI process has a minimal `PATH`.
+- Desktop conversions now expose Pause, Resume, and Cancel controls. Pause waits at safe conversion checkpoints; Cancel asks the worker to stop and then terminates it if needed.
 - PDF conversion now runs a compatibility preflight for oversized pages and stops safely instead of lowering DPI or shrinking the page.
 - Background repair requires LaMa and no longer silently falls back to OpenCV.
 - Packaged builds prefer bundled runtimes more reliably.
@@ -113,6 +114,7 @@ The latest `v0.4.0` stability pass also retested the two reported failure paths:
 - `test/Quiz 1.pdf` at 200 DPI completed without OCR downscaling, without PDF DPI reduction, and with direct LaMa repair plus Node high-fidelity output.
 - `test/Barcelona_Redefined_page1.pdf` at 200 DPI was identified as incompatible with the no-downscale path because it renders to about `8.15 MP`.
 - An intentionally oversized synthetic PDF page is now rejected during compatibility preflight with a clear message instead of lowering DPI or exhausting memory.
+- Pause/resume control was verified through the worker control channel, and cancel was verified to return `转换已取消。` without producing a successful result payload.
 
 The Windows portable package structure was checked on macOS, including `SlideMaker.exe`, bundled Python, bundled Node, OCR models, and `big-lama.pt`. A true Windows output run still needs to be executed on Windows or in a Windows VM because macOS cannot run the Windows executable directly.
 

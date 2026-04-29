@@ -98,6 +98,7 @@ def process_images_to_ppt(
     output_ppt="output.pptx",
     slide_progress_cb=None,
     log_cb=None,
+    control_cb=None,
     options=None,
     working_dir=None,
 ):
@@ -126,6 +127,8 @@ def process_images_to_ppt(
     _emit_log(log_cb, f"Found {total_images} images to process.")
     if slide_progress_cb:
         slide_progress_cb(0, total_images, "准备 OCR 与背景修复")
+    if control_cb:
+        control_cb("OCR/去字", 35, "准备 OCR 与背景修复")
 
     from ocr_engine import extract_text_data, get_ocr_runtime_status
 
@@ -146,6 +149,8 @@ def process_images_to_ppt(
     all_slides = []
 
     for i, img_path in enumerate(images):
+        if control_cb:
+            control_cb("OCR/去字", 35 + int((i / max(total_images, 1)) * 40), f"等待处理第 {i + 1}/{total_images} 页")
         _emit_log(log_cb, f"Processing slide {i + 1}/{total_images}: {img_path}")
         if slide_progress_cb:
             slide_progress_cb(i, total_images, f"正在处理第 {i + 1}/{total_images} 页")
@@ -163,6 +168,8 @@ def process_images_to_ppt(
             cv_img = scan_document(cv_img, log_cb=log_cb)
             scanner_applied = True
 
+        if control_cb:
+            control_cb("OCR/去字", 35 + int((i / max(total_images, 1)) * 40), f"准备识别第 {i + 1}/{total_images} 页")
         _validate_processing_image_compatibility(cv_img, options)
         source_image_path = _prepare_processing_image(
             source_image_path,
@@ -190,6 +197,8 @@ def process_images_to_ppt(
             log_cb,
             options,
         )
+        if control_cb:
+            control_cb("OCR/去字", 35 + int((i / max(total_images, 1)) * 40), f"正在 OCR 识别第 {i + 1}/{total_images} 页")
         text_data = _scale_text_data(list(extract_text_data(ocr_input_path, log_cb=log_cb)), ocr_scale_factor)
         for td in text_data:
             box = td["box"]
@@ -200,6 +209,8 @@ def process_images_to_ppt(
 
         from image_processor import inpaint_background
 
+        if control_cb:
+            control_cb("OCR/去字", 35 + int((i / max(total_images, 1)) * 40), f"正在修复第 {i + 1}/{total_images} 页背景")
         clean_bg_filename = f"clean_bg_{i}.png"
         clean_bg_path = os.path.join(working_dir, clean_bg_filename)
         inpaint_background(
@@ -210,6 +221,8 @@ def process_images_to_ppt(
             log_cb=log_cb,
         )
 
+        if control_cb:
+            control_cb("OCR/去字", 35 + int(((i + 1) / max(total_images, 1)) * 40), f"已完成第 {i + 1}/{total_images} 页")
         ppt.add_slide(clean_bg_path, text_data, dpi=canvas_dpi)
 
         all_slides.append(

@@ -155,6 +155,9 @@ class StatusPanel(QtWidgets.QFrame):
     openFolderRequested = QtCore.pyqtSignal()
     retryRequested = QtCore.pyqtSignal()
     scannerToggled = QtCore.pyqtSignal(bool)
+    pauseRequested = QtCore.pyqtSignal()
+    resumeRequested = QtCore.pyqtSignal()
+    cancelRequested = QtCore.pyqtSignal()
 
     STAGES = (
         ("校验输入", "校验输入", "文件与参数"),
@@ -170,6 +173,7 @@ class StatusPanel(QtWidgets.QFrame):
         self.current_output_path = None
         self.current_input_path = None
         self._syncing_scanner = False
+        self._paused = False
 
         root_layout = QtWidgets.QVBoxLayout(self)
         root_layout.setContentsMargins(0, 0, 0, 0)
@@ -291,6 +295,23 @@ class StatusPanel(QtWidgets.QFrame):
         self.convert_button.clicked.connect(self.pickFileRequested.emit)
         card_layout.addWidget(self.convert_button)
 
+        self.task_controls = QtWidgets.QFrame()
+        self.task_controls.setObjectName("ResultActions")
+        task_control_layout = QtWidgets.QHBoxLayout(self.task_controls)
+        task_control_layout.setContentsMargins(0, 0, 0, 0)
+        task_control_layout.setSpacing(10)
+
+        self.pause_button = QtWidgets.QPushButton("暂停")
+        self.pause_button.setObjectName("ActionButton")
+        self.pause_button.clicked.connect(self._emit_pause_or_resume)
+        task_control_layout.addWidget(self.pause_button, stretch=1)
+
+        self.cancel_button = QtWidgets.QPushButton("取消转换")
+        self.cancel_button.setObjectName("ActionButton")
+        self.cancel_button.clicked.connect(self.cancelRequested.emit)
+        task_control_layout.addWidget(self.cancel_button, stretch=1)
+        card_layout.addWidget(self.task_controls)
+
         self.result_actions = QtWidgets.QFrame()
         self.result_actions.setObjectName("ResultActions")
         action_layout = QtWidgets.QHBoxLayout(self.result_actions)
@@ -353,8 +374,10 @@ class StatusPanel(QtWidgets.QFrame):
         content_layout.addStretch(1)
 
         self._set_result_actions_enabled(False)
+        self._set_task_controls_enabled(False)
         self.retry_button.setEnabled(False)
         self.result_actions.hide()
+        self.task_controls.hide()
         self.summary_card.hide()
         self._set_steps_by_index(0)
         self.progress_meter.set_status(0, "等待任务")
@@ -393,9 +416,26 @@ class StatusPanel(QtWidgets.QFrame):
         if not self._syncing_scanner:
             self.scannerToggled.emit(enabled)
 
+    def _emit_pause_or_resume(self):
+        if self._paused:
+            self.resumeRequested.emit()
+        else:
+            self.pauseRequested.emit()
+
     def _set_result_actions_enabled(self, enabled):
         self.open_result_button.setEnabled(enabled)
         self.open_folder_button.setEnabled(enabled)
+
+    def _set_task_controls_enabled(self, enabled):
+        self.pause_button.setEnabled(enabled)
+        self.cancel_button.setEnabled(enabled)
+
+    def set_paused(self, paused):
+        self._paused = bool(paused)
+        self.pause_button.setText("继续" if self._paused else "暂停")
+        self.progress_meter.set_status(self.progress_meter._percent, "暂停中" if self._paused else "转换中")
+        if self._paused:
+            self.detail_label.setText("暂停请求已发送，当前页或当前阶段到达安全点后会停住。")
 
     def _set_notice(self, message="", notice_type="info"):
         if not message:
@@ -454,6 +494,9 @@ class StatusPanel(QtWidgets.QFrame):
         self.current_output_path = output_path
         self.summary_card.show()
         self.result_actions.hide()
+        self.task_controls.show()
+        self._paused = False
+        self.pause_button.setText("暂停")
         self.convert_button.setEnabled(False)
         self.convert_button.setText("转换中")
         self.detail_label.setText("正在检查文件与转换参数。")
@@ -463,6 +506,7 @@ class StatusPanel(QtWidgets.QFrame):
         self._set_notice()
         self.retry_button.setEnabled(False)
         self._set_result_actions_enabled(False)
+        self._set_task_controls_enabled(True)
 
     def set_progress(self, stage, percent, detail):
         active_index = self._stage_index(stage, percent)
@@ -487,6 +531,10 @@ class StatusPanel(QtWidgets.QFrame):
             self._set_notice("转换成功，可以直接打开结果文件或所在文件夹。", "success")
         self.convert_button.setEnabled(True)
         self.convert_button.setText("开始转换")
+        self.task_controls.hide()
+        self._set_task_controls_enabled(False)
+        self._paused = False
+        self.pause_button.setText("暂停")
         self.retry_button.setEnabled(True)
         self.result_actions.show()
         self._set_result_actions_enabled(True)
@@ -500,6 +548,10 @@ class StatusPanel(QtWidgets.QFrame):
         self._set_notice(message, "error")
         self.convert_button.setEnabled(True)
         self.convert_button.setText("开始转换")
+        self.task_controls.hide()
+        self._set_task_controls_enabled(False)
+        self._paused = False
+        self.pause_button.setText("暂停")
         self.retry_button.setEnabled(True)
         self.result_actions.show()
         self._set_result_actions_enabled(bool(self.current_output_path and Path(self.current_output_path).exists()))

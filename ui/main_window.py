@@ -26,6 +26,7 @@ from services.app_models import (
     TaskPreferences,
     sanitize_suffix,
 )
+from services.conversion_control import ACTION_CANCEL, ACTION_PAUSE, ACTION_RUN, write_control_action
 from services.platform_utils import open_path_in_shell
 from services.runtime_env import describe_runtime_environment
 from ui.cards import FeatureCard, PlaceholderCard
@@ -68,6 +69,10 @@ class ConversionWorker(QtCore.QThread):
         self.preferences = preferences
         self._result_payload = None
         self._error_payload = None
+        self._process = None
+        self._control_path = None
+        self._cancel_requested = False
+        self._pause_requested = False
 
     def _resolve_worker_python(self):
         executable = Path(sys.executable)
@@ -131,14 +136,17 @@ class ConversionWorker(QtCore.QThread):
     def run(self):
         settings_json = json.dumps(self.settings.to_dict(), ensure_ascii=False)
         preferences_json = json.dumps(self.preferences.to_dict(), ensure_ascii=False)
-        channel_path = None
+        fd, temp_path = tempfile.mkstemp(prefix="slide-maker-worker-", suffix=".jsonl")
+        os.close(fd)
+        channel_path = Path(temp_path)
+        fd, control_temp_path = tempfile.mkstemp(prefix="slide-maker-control-", suffix=".json")
+        os.close(fd)
+        self._control_path = Path(control_temp_path)
+        write_control_action(self._control_path, ACTION_RUN)
         worker_cwd = str(Path(sys.executable).resolve().parent if getattr(sys, "frozen", False) else PROJECT_ROOT)
         env = os.environ.copy()
         env["PYTHONUTF8"] = "1"
         if getattr(sys, "frozen", False):
-            fd, temp_path = tempfile.mkstemp(prefix="slide-maker-worker-", suffix=".jsonl")
-            os.close(fd)
-            channel_path = Path(temp_path)
             portable_worker = self._resolve_portable_worker()
             if portable_worker:
                 project_root = Path(portable_worker["project_root"])
@@ -160,6 +168,8 @@ class ConversionWorker(QtCore.QThread):
                     preferences_json,
                     "--channel-file",
                     str(channel_path),
+                    "--control-file",
+                    str(self._control_path),
                 ]
                 env["PYTHONHOME"] = portable_worker["python_home"]
                 env["PYTHONPATH"] = os.pathsep.join(
@@ -186,6 +196,8 @@ class ConversionWorker(QtCore.QThread):
                     preferences_json,
                     "--channel-file",
                     str(channel_path),
+                    "--control-file",
+                    str(self._control_path),
                 ]
         else:
             command = [
@@ -204,42 +216,47 @@ class ConversionWorker(QtCore.QThread):
                 settings_json,
                 "--preferences-json",
                 preferences_json,
+                "--channel-file",
+                str(channel_path),
+                "--control-file",
+                str(self._control_path),
             ]
         creationflags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
 
         process = subprocess.Popen(
             command,
             cwd=worker_cwd,
-            stdout=None if getattr(sys, "frozen", False) else subprocess.PIPE,
-            stderr=subprocess.DEVNULL if getattr(sys, "frozen", False) else subprocess.STDOUT,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
             text=True,
             encoding="utf-8",
             errors="replace",
             creationflags=creationflags,
             env=env,
         )
+        self._process = process
 
-        if channel_path is not None:
-            offset = 0
-            while process.poll() is None:
-                offset = self._drain_channel_file(channel_path, offset)
-                time.sleep(0.1)
+        offset = 0
+        while process.poll() is None:
             offset = self._drain_channel_file(channel_path, offset)
-        else:
-            for raw_line in process.stdout or []:
-                line = raw_line.strip()
-                if not line:
-                    continue
-                self._handle_protocol_line(line)
+            time.sleep(0.1)
+        offset = self._drain_channel_file(channel_path, offset)
 
         return_code = process.wait()
-        if channel_path is not None:
-            try:
-                channel_path.unlink(missing_ok=True)
-            except OSError:
-                pass
+        self._process = None
+        try:
+            channel_path.unlink(missing_ok=True)
+            if self._control_path:
+                self._control_path.unlink(missing_ok=True)
+        except OSError:
+            pass
+        self._control_path = None
         if self._result_payload is not None and return_code == 0:
             self.conversionFinished.emit(self._result_payload)
+            return
+
+        if self._cancel_requested:
+            self.conversionFailed.emit("转换已取消。")
             return
 
         if self._error_payload is not None:
@@ -247,6 +264,34 @@ class ConversionWorker(QtCore.QThread):
             return
 
         self.conversionFailed.emit(f"转换子进程退出异常，退出码 {return_code}")
+
+    def pause(self):
+        self._pause_requested = True
+        if self._control_path:
+            write_control_action(self._control_path, ACTION_PAUSE)
+
+    def resume(self):
+        self._pause_requested = False
+        if self._control_path:
+            write_control_action(self._control_path, ACTION_RUN)
+
+    def cancel(self):
+        self._cancel_requested = True
+        if self._pause_requested:
+            self.resume()
+            self._cancel_requested = True
+        if self._control_path:
+            write_control_action(self._control_path, ACTION_CANCEL)
+        if self._process and self._process.poll() is None:
+            deadline = time.time() + 0.8
+            while self._process.poll() is None and time.time() < deadline:
+                time.sleep(0.05)
+            if self._process.poll() is not None:
+                return
+            self._process.terminate()
+            time.sleep(0.2)
+            if self._process.poll() is None:
+                self._process.kill()
 
 
 class MainWindow(QtWidgets.QMainWindow):
@@ -676,6 +721,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.status_panel.openFolderRequested.connect(self._open_result_folder)
         self.status_panel.retryRequested.connect(self.retry_last_task)
         self.status_panel.scannerToggled.connect(self._set_scanner_from_status)
+        self.status_panel.pauseRequested.connect(self._pause_conversion)
+        self.status_panel.resumeRequested.connect(self._resume_conversion)
+        self.status_panel.cancelRequested.connect(self._cancel_conversion)
 
         progress_column = QtWidgets.QFrame()
         progress_column.setObjectName("ProgressColumn")
@@ -1407,6 +1455,21 @@ class MainWindow(QtWidgets.QMainWindow):
             self.last_task["input_kind"],
             preferences,
         )
+
+    def _pause_conversion(self):
+        if self.worker and self.worker.isRunning():
+            self.worker.pause()
+            self.status_panel.set_paused(True)
+
+    def _resume_conversion(self):
+        if self.worker and self.worker.isRunning():
+            self.worker.resume()
+            self.status_panel.set_paused(False)
+
+    def _cancel_conversion(self):
+        if self.worker and self.worker.isRunning():
+            self.worker.cancel()
+            self.status_panel.set_error("转换已取消。")
 
     def _record_recent_task(self, message: str):
         if not self.app_settings.remember_recent_tasks:

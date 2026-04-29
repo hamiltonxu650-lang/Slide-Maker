@@ -4,6 +4,7 @@ from pathlib import Path
 import traceback
 
 from services.app_models import AppSettings, TaskPreferences, app_data_root
+from services.conversion_control import ConversionCancelled, ConversionController
 from services.conversion_service import run_conversion
 
 
@@ -54,11 +55,20 @@ def write_worker_crash_log(message, trace):
         pass
 
 
-def run_hidden(input_path, output_path, input_kind, settings_json="{}", preferences_json="{}", channel_file=None):
+def run_hidden(
+    input_path,
+    output_path,
+    input_kind,
+    settings_json="{}",
+    preferences_json="{}",
+    channel_file=None,
+    control_file=None,
+):
     try:
         configure_channel_file(channel_file)
         settings = AppSettings.from_dict(json.loads(settings_json))
         preferences = TaskPreferences.from_dict(json.loads(preferences_json))
+        controller = ConversionController(control_file, progress_cb=progress_cb)
         result = run_conversion(
             input_path,
             output_path=output_path,
@@ -68,7 +78,18 @@ def run_hidden(input_path, output_path, input_kind, settings_json="{}", preferen
             log_cb=log_cb,
             settings=settings,
             preferences=preferences,
+            control_cb=controller.check,
         )
+    except ConversionCancelled as exc:
+        emit(
+            ERROR_PREFIX,
+            {
+                "message": str(exc),
+                "traceback": "",
+                "cancelled": True,
+            },
+        )
+        return 1
     except Exception as exc:
         trace = traceback.format_exc()
         write_worker_crash_log(str(exc), trace)
@@ -93,6 +114,7 @@ def main():
     parser.add_argument("--settings-json", default="{}")
     parser.add_argument("--preferences-json", default="{}")
     parser.add_argument("--channel-file", default=None)
+    parser.add_argument("--control-file", default=None)
     args = parser.parse_args()
     return run_hidden(
         args.input_path,
@@ -101,6 +123,7 @@ def main():
         settings_json=args.settings_json,
         preferences_json=args.preferences_json,
         channel_file=args.channel_file,
+        control_file=args.control_file,
     )
 
 
