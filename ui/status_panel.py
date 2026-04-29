@@ -2,6 +2,7 @@ from pathlib import Path
 
 from PyQt6 import QtCore, QtGui, QtWidgets
 
+from services.app_models import PDF_DPI_CHOICES
 from ui.icons import svg_icon
 
 
@@ -378,7 +379,12 @@ class StatusPanel(QtWidgets.QFrame):
         text_mode = getattr(settings, "text_mode", "faithful")
 
         self.parameter_rows["renderer"].set_value("High" if renderer == "high_fidelity" else "Compat", 88 if renderer == "high_fidelity" else 56)
-        self.parameter_rows["dpi"].set_value(str(dpi), {150: 45, 200: 70, 300: 100}.get(dpi, 70))
+        try:
+            dpi_index = PDF_DPI_CHOICES.index(dpi)
+            dpi_meter = int(round(30 + (dpi_index / max(len(PDF_DPI_CHOICES) - 1, 1)) * 70))
+        except ValueError:
+            dpi_meter = 70
+        self.parameter_rows["dpi"].set_value(str(dpi), dpi_meter)
         self.parameter_rows["cleanup"].set_value("Strong" if cleanup == "strong" else "Standard", 88 if cleanup == "strong" else 58)
         self.parameter_rows["text"].set_value("Clear" if text_mode == "clear" else "Faithful", 88 if text_mode == "clear" else 58)
         self.set_scanner_enabled(getattr(settings, "enable_document_scanner", False))

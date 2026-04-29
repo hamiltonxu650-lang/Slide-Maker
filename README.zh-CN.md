@@ -104,7 +104,12 @@ python ui_app.py
 这次 `v0.4.0` 稳定性修复又专门复测了你截图里的两个问题：
 
 - PNG / 图片转换在接近 Mac GUI 的受限环境里重新跑过，`PATH=/usr/bin:/bin` 时仍然成功走 Node 高保真输出。
+- PDF DPI 选项现在在桌面 UI 和终端 UI 中统一为 `100 / 150 / 200 / 300 DPI`。
 - 在不降质模式下，超过约 `6 MP` 或最长边超过 `3200 px` 的页面会被判定为不兼容，需要先裁掉超大画布或拆分异常页面。
+- `100 DPI` 已作为用户主动选择的选项加入；如果用户选择了更高 DPI，Slide Maker 仍然不会偷偷降到 100。
+- `300 DPI` 也接入同一套兼容性预检，不兼容时明确停止，不会被自动降采样，也不会继续冲进内存崩溃。
+- `test/Barcelona_Redefined_page1.pdf` 已经用用户主动选择的 `100 DPI` 跑通，并成功输出 Node 高保真 PPTX。
+- `test/Quiz 1.pdf` 在用户主动选择 `300 DPI` 时会被预检拒绝，因为第一页将渲染到约 `8.42 MP`。
 - `test/Quiz 1.pdf` 在 200 DPI 下已经全质量跑通：不降 PDF DPI、不缩 OCR 输入，使用 LaMa 全尺寸修复和 Node 高保真输出。
 - `test/Barcelona_Redefined_page1.pdf` 在 200 DPI 下约为 `8.15 MP`，已经被识别为不适合全尺寸 OCR / LaMa 链路的输入。
 - 额外构造了一个超大页面 PDF，现在会在兼容性预检阶段明确拒绝并提示原因，不会降低 DPI，也不会继续无限吃内存。

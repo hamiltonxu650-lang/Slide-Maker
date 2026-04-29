@@ -104,7 +104,12 @@ The current Mac-side conversion flow was retested after the frontend sync:
 The latest `v0.4.0` stability pass also retested the two reported failure paths:
 
 - PNG/image conversion was rerun with a restricted GUI-like environment (`PATH=/usr/bin:/bin`) and still produced Node high-fidelity output.
+- PDF DPI choices are now unified across the desktop and terminal UI as `100 / 150 / 200 / 300 DPI`.
 - In quality-preserving mode, pages above roughly `6 MP` or `3200 px` on the longest edge are treated as incompatible with the full OCR/LaMa path until the source PDF is cropped or split.
+- `100 DPI` is available as an explicit user-selected option; Slide Maker still never silently lowers a higher selected DPI.
+- `300 DPI` now uses the same compatibility preflight, so incompatible pages stop with a clear message instead of being downsampled or pushed into a memory crash.
+- `test/Barcelona_Redefined_page1.pdf` completed successfully at user-selected `100 DPI` with Node high-fidelity output.
+- `test/Quiz 1.pdf` at user-selected `300 DPI` was rejected during preflight because the first page would render to about `8.42 MP`.
 - `test/Quiz 1.pdf` at 200 DPI completed without OCR downscaling, without PDF DPI reduction, and with direct LaMa repair plus Node high-fidelity output.
 - `test/Barcelona_Redefined_page1.pdf` at 200 DPI was identified as incompatible with the no-downscale path because it renders to about `8.15 MP`.
 - An intentionally oversized synthetic PDF page is now rejected during compatibility preflight with a clear message instead of lowering DPI or exhausting memory.

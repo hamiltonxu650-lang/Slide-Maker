@@ -51,7 +51,7 @@ TEXT_MODE_CHOICES = (
     TEXT_MODE_CLEAR,
 )
 
-PDF_DPI_CHOICES = (150, 200, 300)
+PDF_DPI_CHOICES = (100, 150, 200, 300)
 LAMA_MODEL_FILENAME = "big-lama.pt"
 LAMA_MODEL_ENV_VARS = (
     "SLIDE_MAKER_LAMA_MODEL",
@@ -198,14 +198,14 @@ def build_conversion_options(settings: AppSettings | None, preferences: TaskPref
         background_cleanup = BACKGROUND_STRONG
     elif preferences.focus == PREFERENCE_SPEED:
         preferred_renderer = RENDERER_COMPATIBILITY
-        pdf_dpi = 150
+        pdf_dpi = 100
 
     if "clarity" in preferences.mapped_tags:
         text_mode = TEXT_MODE_CLEAR
     if "cleanup" in preferences.mapped_tags:
         background_cleanup = BACKGROUND_STRONG
     if "speed" in preferences.mapped_tags:
-        pdf_dpi = min(pdf_dpi, 150)
+        pdf_dpi = min(pdf_dpi, 100)
     if "layout" in preferences.mapped_tags and preferences.focus != PREFERENCE_SPEED:
         preferred_renderer = RENDERER_HIGH_FIDELITY
 

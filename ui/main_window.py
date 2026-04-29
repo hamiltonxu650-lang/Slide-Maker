@@ -15,6 +15,7 @@ from services.app_models import (
     OUTPUT_POLICY_ASK,
     OUTPUT_POLICY_LAST,
     OUTPUT_POLICY_SOURCE,
+    PDF_DPI_CHOICES,
     PREFERENCE_CLARITY,
     PREFERENCE_CLEANUP,
     PREFERENCE_LAYOUT,
@@ -777,7 +778,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.renderer_combo.addItem("兼容优先", RENDERER_COMPATIBILITY)
         conversion_layout.addLayout(self._form_row("默认渲染模式", self.renderer_combo))
         self.pdf_quality_combo = QtWidgets.QComboBox()
-        for dpi in (150, 200, 300):
+        for dpi in PDF_DPI_CHOICES:
             self.pdf_quality_combo.addItem(f"{dpi} DPI", dpi)
         conversion_layout.addLayout(self._form_row("PDF 渲染质量", self.pdf_quality_combo))
         self.cleanup_combo = QtWidgets.QComboBox()
