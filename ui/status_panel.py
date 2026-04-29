@@ -417,6 +417,14 @@ class StatusPanel(QtWidgets.QFrame):
         self.convert_button.setIcon(svg_icon(icon_name, "#FFFFFF", 18))
         self.convert_button.setEnabled(enabled)
 
+    def _sync_primary_button_state(self):
+        if self._task_state == "running":
+            self._set_primary_button("暂停", "pause")
+        elif self._task_state == "paused":
+            self._set_primary_button("继续", "play")
+        else:
+            self._set_primary_button("开始转换", "play")
+
     def _emit_primary_action(self):
         if self._task_state == "idle":
             self.pickFileRequested.emit()
@@ -435,8 +443,8 @@ class StatusPanel(QtWidgets.QFrame):
     def set_paused(self, paused):
         self._paused = bool(paused)
         self._task_state = "paused" if self._paused else "running"
-        self._set_primary_button("继续转换" if self._paused else "暂停转换", "play" if self._paused else "pause")
-        self.progress_meter.set_status(self.progress_meter._percent, "暂停中" if self._paused else "转换中")
+        self._sync_primary_button_state()
+        self.progress_meter.set_status(self.progress_meter._percent, "暂停中" if self._paused else "处理中")
         if self._paused:
             self.detail_label.setText("暂停请求已发送，当前页或当前阶段到达安全点后会停住。")
 
@@ -500,7 +508,7 @@ class StatusPanel(QtWidgets.QFrame):
         self.task_controls.show()
         self._paused = False
         self._task_state = "running"
-        self._set_primary_button("暂停转换", "pause")
+        self._sync_primary_button_state()
         self.detail_label.setText("正在检查文件与转换参数。")
         self.summary_label.setText(f"当前偏好：{preference_label}\n输出文件：{Path(output_path).name}")
         self.progress_meter.set_status(8, "校验输入")
@@ -516,6 +524,8 @@ class StatusPanel(QtWidgets.QFrame):
         self.progress_meter.set_status(percent, display_stage)
         self.detail_label.setText(detail)
         self._set_steps_by_index(active_index, done_all=(stage == "完成" and percent >= 100))
+        if self._task_state in {"running", "paused"}:
+            self._sync_primary_button_state()
 
     def set_result(self, result):
         self.current_output_path = result["output_path"]
@@ -531,9 +541,8 @@ class StatusPanel(QtWidgets.QFrame):
             self._set_notice(result["fallback_notice"], "warning")
         else:
             self._set_notice("转换成功，可以直接打开结果文件或所在文件夹。", "success")
-        self.convert_button.setEnabled(True)
         self._task_state = "idle"
-        self._set_primary_button("开始转换", "play")
+        self._sync_primary_button_state()
         self.task_controls.hide()
         self._set_task_controls_enabled(False)
         self._paused = False
@@ -548,9 +557,8 @@ class StatusPanel(QtWidgets.QFrame):
         self.summary_label.setText("这次转换没有成功完成。你可以调整偏好后再次转换。")
         self._set_steps_by_index(3, error=True)
         self._set_notice(message, "error")
-        self.convert_button.setEnabled(True)
         self._task_state = "idle"
-        self._set_primary_button("开始转换", "play")
+        self._sync_primary_button_state()
         self.task_controls.hide()
         self._set_task_controls_enabled(False)
         self._paused = False

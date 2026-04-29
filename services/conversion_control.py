@@ -29,7 +29,7 @@ class ConversionController:
             return ACTION_RUN
         return str(payload.get("action") or ACTION_RUN).strip().lower()
 
-    def check(self, stage: str = "转换中", percent: int = 0, detail: str = "") -> None:
+    def check(self, stage: str = "处理中", percent: int = 0, detail: str = "") -> None:
         action = self._read_action()
         if action == ACTION_CANCEL:
             raise ConversionCancelled("转换已取消。")
