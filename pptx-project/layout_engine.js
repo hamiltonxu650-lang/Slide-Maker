@@ -15,6 +15,28 @@ if (!fs.existsSync(resolvedDataPath)) {
 }
 
 const allSlidesData = JSON.parse(fs.readFileSync(resolvedDataPath, 'utf8'));
+const MAX_SLIDE_INCHES = 55.95;
+
+function slideDpi(slideData) {
+    const dpi = Number(slideData.canvas_dpi || 96);
+    return Number.isFinite(dpi) && dpi > 0 ? dpi : 96;
+}
+
+function layoutSize(slideData) {
+    const dpi = slideDpi(slideData);
+    const imgW = slideData.width || 1024;
+    const imgH = slideData.height || 768;
+    const widthIn = imgW / dpi;
+    const heightIn = imgH / dpi;
+    const longestEdge = Math.max(widthIn, heightIn, 0.01);
+    const coordinateScale = Math.min(1.0, MAX_SLIDE_INCHES / longestEdge);
+    return {
+        dpi,
+        width: widthIn * coordinateScale,
+        height: heightIn * coordinateScale,
+        coordinateScale,
+    };
+}
 
 // Initialize pptxgen
 let pres = new PptxGenJS();
@@ -22,10 +44,11 @@ let pres = new PptxGenJS();
 // Basic Layout setup using first slide as reference
 if (allSlidesData.length > 0) {
     const firstSlide = allSlidesData[0];
+    const firstLayout = layoutSize(firstSlide);
     pres.defineLayout({ 
         name:'Custom', 
-        width: (firstSlide.width || 1024) / 96.0, 
-        height: (firstSlide.height || 768) / 96.0 
+        width: firstLayout.width,
+        height: firstLayout.height,
     });
     pres.layout = 'Custom';
 }
@@ -35,13 +58,16 @@ allSlidesData.forEach((slideData, idx) => {
 
     const img_w = slideData.width || 1024;
     const img_h = slideData.height || 768;
+    const slideLayout = layoutSize(slideData);
+    const dpi = slideLayout.dpi;
+    const coordinateScale = slideLayout.coordinateScale;
 
     // Adapt slide dimensions per slide
     const layoutName = `Slide_${idx + 1}`;
     pres.defineLayout({
         name: layoutName,
-        width: img_w / 96.0,
-        height: img_h / 96.0
+        width: slideLayout.width,
+        height: slideLayout.height,
     });
     pres.layout = layoutName;
 
@@ -58,8 +84,8 @@ allSlidesData.forEach((slideData, idx) => {
         slide.addImage({
             data: `data:image/${ext};base64,${base64}`,
             x: 0, y: 0,
-            w: img_w / 96.0,
-            h: img_h / 96.0
+            w: slideLayout.width,
+            h: slideLayout.height,
         });
     }
 
@@ -85,16 +111,16 @@ allSlidesData.forEach((slideData, idx) => {
             let b_c = Math.max(0, Math.min(255, b.color[2]));
             let colorHex = ((1 << 24) + (r << 16) + (g << 8) + b_c).toString(16).slice(1).toUpperCase();
 
-            let safe_w = (w * boxScale) / 96.0;
-            let safe_h = (h * boxScale) / 96.0;
+            let safe_w = (w * boxScale / dpi) * coordinateScale;
+            let safe_h = (h * boxScale / dpi) * coordinateScale;
 
             slide.addText(b.text, {
-                x: b_x_min / 96.0,
-                y: b_y_min / 96.0,
+                x: (b_x_min / dpi) * coordinateScale,
+                y: (b_y_min / dpi) * coordinateScale,
                 w: safe_w,
                 h: safe_h,
                 color: colorHex,
-                fontSize: b.font_size * fontScale,
+                fontSize: b.font_size * fontScale * coordinateScale,
                 valign: 'top', align: 'left',
                 margin: 0,
                 wrap: false 

@@ -50,6 +50,65 @@ def _validate_render_compatibility(page_number, dpi, render_w, render_h, max_pix
     )
 
 
+def _color_int_to_rgb(color_value):
+    color_value = int(color_value or 0)
+    return [
+        (color_value >> 16) & 255,
+        (color_value >> 8) & 255,
+        color_value & 255,
+    ]
+
+
+def extract_pdf_native_text_data(pdf_path, dpi=200, log_cb=None):
+    doc = fitz.open(pdf_path)
+    scale = max(24, int(dpi or 200)) / 72.0
+    pages = {}
+    try:
+        for page_index in range(len(doc)):
+            page = doc.load_page(page_index)
+            page_key = f"page_{page_index + 1:03d}.png"
+            text_items = []
+            page_dict = page.get_text("dict")
+            for block in page_dict.get("blocks", []):
+                if block.get("type") != 0:
+                    continue
+                for line in block.get("lines", []):
+                    spans = [span for span in line.get("spans", []) if str(span.get("text", "")).strip()]
+                    if not spans:
+                        continue
+                    raw_text = "".join(str(span.get("text", "")) for span in spans).replace("\u00a0", " ")
+                    text = " ".join(raw_text.split())
+                    if not text:
+                        continue
+
+                    x0, y0, x1, y1 = line.get("bbox", spans[0].get("bbox", (0, 0, 0, 0)))
+                    font_size = max(float(span.get("size", 0.0) or 0.0) for span in spans)
+                    color = _color_int_to_rgb(spans[0].get("color", 0))
+                    box = [
+                        [x0 * scale, y0 * scale],
+                        [x1 * scale, y0 * scale],
+                        [x1 * scale, y1 * scale],
+                        [x0 * scale, y1 * scale],
+                    ]
+                    text_items.append(
+                        {
+                            "text": text,
+                            "box": box,
+                            "height": (y1 - y0) * scale,
+                            "width": (x1 - x0) * scale,
+                            "color": color,
+                            "font_size": max(font_size, 8.0),
+                            "source": "pdf_native",
+                        }
+                    )
+            pages[page_key] = text_items
+            if text_items:
+                _emit_log(log_cb, f"[*] Native PDF text extracted for page {page_index + 1}: {len(text_items)} lines.")
+    finally:
+        doc.close()
+    return pages
+
+
 def extract_pdf_to_images(
     pdf_path,
     out_dir,

@@ -106,7 +106,9 @@ def process_images_to_ppt(
     cleanup_options = dict(options.get("cleanup_options", {}))
     font_scale = float(options.get("font_scale", 1.0))
     box_scale = float(options.get("box_scale", 1.5))
-    canvas_dpi = float(options.get("canvas_dpi", 96))
+    canvas_dpi = float(options.get("canvas_dpi", 96) or 96)
+    font_dpi_scale = 96.0 / max(canvas_dpi, 1.0)
+    precomputed_text_data = dict(options.get("precomputed_text_data", {}) or {})
     working_dir = os.path.abspath(working_dir or "pptx-project")
     os.makedirs(working_dir, exist_ok=True)
 
@@ -197,15 +199,25 @@ def process_images_to_ppt(
             log_cb,
             options,
         )
-        if control_cb:
-            control_cb("OCR/去字", 35 + int((i / max(total_images, 1)) * 40), f"正在 OCR 识别第 {i + 1}/{total_images} 页")
-        text_data = _scale_text_data(list(extract_text_data(ocr_input_path, log_cb=log_cb)), ocr_scale_factor)
-        for td in text_data:
-            box = td["box"]
-            td["font_size"] = estimate_font_size(td["height"], scale=font_scale)
-            td["color"] = extract_text_color(cv_img, box)
-            td["pptx_box_scale"] = box_scale
-            td["pptx_font_scale"] = float(options.get("font_scale", 1.0))
+        native_text_data = precomputed_text_data.get(Path(img_path).name)
+        if native_text_data:
+            _emit_log(log_cb, f"[*] Using native PDF text layer for page {i + 1}.")
+            text_data = [dict(item) for item in native_text_data]
+            for td in text_data:
+                td["font_size"] = max(float(td.get("font_size", 8.0)) * font_scale, 8.0)
+                td["color"] = [int(value) for value in td.get("color", [0, 0, 0])]
+                td["pptx_box_scale"] = box_scale
+                td["pptx_font_scale"] = 1.0
+        else:
+            if control_cb:
+                control_cb("OCR/去字", 35 + int((i / max(total_images, 1)) * 40), f"正在 OCR 识别第 {i + 1}/{total_images} 页")
+            text_data = _scale_text_data(list(extract_text_data(ocr_input_path, log_cb=log_cb)), ocr_scale_factor)
+            for td in text_data:
+                box = td["box"]
+                td["font_size"] = estimate_font_size(td["height"], scale=font_scale * font_dpi_scale)
+                td["color"] = extract_text_color(cv_img, box)
+                td["pptx_box_scale"] = box_scale
+                td["pptx_font_scale"] = 1.0
 
         from image_processor import inpaint_background
 
@@ -229,6 +241,7 @@ def process_images_to_ppt(
             {
                 "width": img_w,
                 "height": img_h,
+                "canvas_dpi": canvas_dpi,
                 "text_data": text_data,
                 "background_image": clean_bg_path,
             }

@@ -172,7 +172,7 @@ def run_conversion(
 
     source_processed_path = input_path
     if input_kind == "pdf":
-        from extract_pdf import extract_pdf_to_images
+        from extract_pdf import extract_pdf_native_text_data, extract_pdf_to_images
 
         _emit_progress(progress_cb, "提取页面", 15, "PDF 正在拆分为图片")
         if temp_extract_dir.exists():
@@ -193,6 +193,14 @@ def run_conversion(
             max_pixels=options.get("pdf_max_render_pixels", 10_000_000),
             max_edge=options.get("pdf_max_render_edge", 5000),
         )
+        native_text_data = extract_pdf_native_text_data(
+            input_path,
+            dpi=options["pdf_dpi"],
+            log_cb=logger.emit,
+        )
+        if any(native_text_data.values()):
+            options["precomputed_text_data"] = native_text_data
+            logger.emit("[*] PDF native text layer detected; using native text positions instead of OCR.")
         source_processed_path = str(temp_extract_dir)
     else:
         _check_control(control_cb, "提取页面", 30, "图片输入无需拆页，直接进入识别")

@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 import shutil
+import subprocess
 import sys
 import ctypes
 
@@ -217,6 +218,11 @@ def find_node_executable(project_root: Path | None = None):
     project_root = project_root or detect_project_root()
     candidates = []
 
+    for env_var in ("SLIDE_MAKER_NODE", "NODE_BINARY"):
+        configured = str(os.getenv(env_var, "") or "").strip()
+        if configured:
+            candidates.append(Path(configured).expanduser())
+
     for root in get_runtime_roots():
         if os.name == "nt":
             candidates.extend(
@@ -247,6 +253,9 @@ def find_node_executable(project_root: Path | None = None):
             project_root / "_internal" / "runtime" / "node",
             Path.home() / ".local" / "bin" / "node",
             Path.home() / "bin" / "node",
+            Path.home() / ".volta" / "bin" / "node",
+            Path.home() / ".asdf" / "shims" / "node",
+            Path.home() / ".nodenv" / "shims" / "node",
             Path("/opt/homebrew/bin/node"),
             Path("/usr/local/bin/node"),
             Path("/usr/bin/node"),
@@ -276,6 +285,24 @@ def find_node_executable(project_root: Path | None = None):
     for candidate in candidates:
         if _is_runnable_node_candidate(candidate):
             return str(candidate)
+
+    if os.name != "nt":
+        for shell in (os.getenv("SHELL"), "/bin/zsh", "/bin/bash"):
+            if not shell:
+                continue
+            try:
+                completed = subprocess.run(
+                    [shell, "-lc", "command -v node"],
+                    check=False,
+                    text=True,
+                    capture_output=True,
+                    timeout=3,
+                )
+            except (OSError, subprocess.TimeoutExpired):
+                continue
+            shell_node = completed.stdout.strip().splitlines()[0] if completed.stdout.strip() else ""
+            if shell_node and _is_runnable_node_candidate(Path(shell_node)):
+                return shell_node
     return None
 
 
