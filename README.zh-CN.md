@@ -6,10 +6,12 @@ Slide Maker 是一个本地优先的工具，用来把 PDF、截图、扫描页�
 
 ## v0.4.0
 
-- Windows 发布版现在提供经过测试的便携桌面包
-- 背景修复现在强制使用 LaMa，不再悄悄回退到 OpenCV
-- 打包版会更稳定地优先使用内置运行时
-- README 重新整理过，更适合公开发布和新用户上手
+- Mac 桌面版已经做出来，并且这套 Mac 前端现在作为桌面端的视觉基准。
+- Windows 桌面前端已经按 Mac 版重做，两端保持同一套产品界面。
+- Windows 端保留自己的平台适配：Windows 标题栏按钮、Windows 字体回退、Windows 文件选择入口。
+- 修复了左上角标题栏和侧栏图标发糊的问题，现在界面显示优先使用高清 PNG 图标。
+- 背景修复现在强制使用 LaMa，不再悄悄回退到 OpenCV。
+- 打包版会更稳定地优先使用内置运行时。
 
 ## 它现在能做什么
 
@@ -23,15 +25,14 @@ Slide Maker 是一个本地优先的工具，用来把 PDF、截图、扫描页�
 
 ## 最推荐的使用方式
 
-### Windows 便携发布版
+### Windows 用户
 
-对大多数用户来说，最简单的方式就是直接下载 [Releases](https://github.com/hamiltonxu650-lang/Slide-Maker/releases) 页面里的最新 Windows 便携包。
+请下载 [Releases](https://github.com/hamiltonxu650-lang/Slide-Maker/releases) 页面里的 Windows 版本，或者使用交付目录里的 Windows 便携 ZIP。
 
 1. 下载最新的便携 ZIP。
 2. 解压到任意目录。
-3. 把 `big-lama.pt` 放到 `%LOCALAPPDATA%\\SlideMaker\\models\\lama\\big-lama.pt`。
-4. 运行 `SlideMaker.exe`。
-5. 选择 PDF 或图片并导出 `.pptx`。
+3. 运行 `SlideMaker.exe`。
+4. 选择 PDF 或图片并导出 `.pptx`。
 
 补充说明：
 
@@ -39,9 +40,24 @@ Slide Maker 是一个本地优先的工具，用来把 PDF、截图、扫描页�
 - Windows 打包版也已经内置了便携 Python、OCR 运行时和 LaMa 模型。
 - 如果你想把 LaMa 模型放在别的位置，也可以设置 `SLIDE_MAKER_LAMA_MODEL`。
 
+### Mac 用户
+
+请使用 Mac 版本。Mac 桌面前端已经完成，并且 Windows 版前端现在就是从这套 Mac 设计同步过去的。
+
+如果从源码启动 Mac 桌面端，可以运行：
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip setuptools wheel
+python -m pip install -r requirements.txt
+cd pptx-project && npm install && cd ..
+python ui_app.py
+```
+
 ## 系统要求
 
-### 最低建议配置
+### Windows 最低建议配置
 
 - Windows 10 或 Windows 11，64 位
 - Intel / AMD x64 处理器
@@ -50,16 +66,23 @@ Slide Maker 是一个本地优先的工具，用来把 PDF、截图、扫描页�
 - 不需要独立显卡
 - 不需要额外安装 Python 或 Node.js
 
-### 推荐配置
+### Windows 推荐配置
 
 - Windows 11，64 位
 - 16 GB 到 32 GB 内存
 - SSD，并预留 8 GB 以上可用空间
 - 现代 4 核或更高性能 CPU
 
+### macOS 源码运行环境
+
+- macOS，Python 3.9 或更高版本
+- Node.js 在 `PATH` 中，用于高保真排版
+- LaMa 模型和 OCR 模型已经放入 `.slide_maker_data/`
+- 桌面 UI 需要 PyQt6
+
 ### 已测试的运行情况
 
-这次 `v0.4.0` 的 Windows 便携版已经按“自带运行时”的方式做过实测：
+`v0.4.0` 的 Windows 便携版此前已经按“自带运行时”的方式做过实测：
 
 - ZIP 下载包大小约 `753 MB`
 - 解压后大小约 `1.85 GB`
@@ -69,16 +92,25 @@ Slide Maker 是一个本地优先的工具，用来把 PDF、截图、扫描页�
 
 如果用户只有 `8 GB` 内存，处理轻量单图任务也许还能运行，但不建议把多页 PDF 转换作为稳定使用目标。
 
+这次同步前端后，Mac 端转换流程也重新跑过：
+
+- 使用 `test/download.jpg` 转换图片，成功输出 1 页 `.pptx`。
+- 使用 `test/Quiz 1.pdf` 转换 PDF，成功输出 3 页 `.pptx`。
+- 使用 `ui_app.py --worker` 跑桌面端实际调用的 worker 流程，成功输出 `.pptx`。
+- Mac 端测试完整走通了 RapidOCR、LaMa AI 背景修复和 Node 高保真排版。
+
+Windows 便携包在 macOS 上检查了包结构，包括 `SlideMaker.exe`、便携 Python、内置 Node、OCR 模型和 `big-lama.pt`。因为 macOS 不能直接执行 Windows `.exe`，最终 Windows 输出测试仍需要在 Windows 机器或 Windows 虚拟机里跑一次。
+
 ## 支持的使用方式
 
 | 入口 | Windows | macOS | Linux | 说明 |
 | --- | --- | --- | --- | --- |
 | Terminal UI | 支持 | 支持 | 支持 | 适合第一次配置 |
 | CLI | 支持 | 支持 | 支持 | 适合自动化 |
-| 桌面 UI（源码运行） | 支持 | 支持 | 支持 | 需要 PyQt6 |
+| 桌面 UI（源码运行） | 支持 | 支持 | 支持 | 使用新的 Mac/Windows 共享前端 |
 | 本地 Web 应用 | 支持 | 支持 | 支持 | 基于 FastAPI/Uvicorn |
 | Docker 部署 Web | 支持 | 支持 | 支持 | 适合自托管 |
-| 打包桌面版 | 支持 | 不支持 | 不支持 | 当前正式打包目标 |
+| 打包桌面版 | 支持 | 支持 | 不支持 | Windows 用户下载 Windows 版，Mac 用户下载 Mac 版 |
 
 ## 从源码启动
 
@@ -115,6 +147,8 @@ python ui_app.py
 ```bash
 python ui_app.py --demo
 ```
+
+这次更新之后，桌面 UI 是最主要的用户界面。Mac 和 Windows 使用同一套重做后的前端，只在窗口外壳和平台文件支持上做差异适配。
 
 ### CLI
 
@@ -200,6 +234,8 @@ Windows 打包流程主要依赖：
 
 这样设计是有意为之，因为它比“全部冻结成单一 worker”在 `torch` 和 `onnxruntime` 负载下更稳定。
 
+Mac 版本现在也是项目的一条正式桌面路线。Mac 端重做出来的前端已经作为当前共享桌面 UI 的来源，Windows 端在不改转换流程的前提下完成了适配。
+
 ## 项目结构
 
 ```text
@@ -221,5 +257,5 @@ Windows 打包流程主要依赖：
 ## 当前状态
 
 - 这个仓库目前更像一个持续迭代中的产品工作台，而不是一个已经完全稳定的 SDK。
-- 现阶段重点在本地转换质量和 Windows 桌面可用性。
+- 现阶段重点在本地转换质量，以及 Windows / Mac 两端桌面体验保持一致。
 - Web 版本默认是本地部署入口，真正公网发布还需要你自己再做部署层处理。
