@@ -1,6 +1,5 @@
 import argparse
 import gc
-from math import sqrt
 import os
 from pathlib import Path
 
@@ -11,8 +10,8 @@ from utils import estimate_font_size, extract_text_color
 
 
 DEFAULT_OCR_MAX_LONG_EDGE = 3200
-DEFAULT_MAX_SOURCE_PIXELS = 12_000_000
-DEFAULT_MAX_SOURCE_EDGE = 5000
+DEFAULT_MAX_SOURCE_PIXELS = 6_000_000
+DEFAULT_MAX_SOURCE_EDGE = 3200
 
 
 def _emit_log(log_cb, message):
@@ -47,41 +46,34 @@ def _build_ocr_input(img_path, cv_img, working_dir, index, log_cb, options):
     return ocr_input_path, (1.0 / resize_scale)
 
 
-def _prepare_processing_image(img_path, cv_img, working_dir, index, log_cb, options, force_write=False):
+def _validate_processing_image_compatibility(cv_img, options):
     max_pixels = int(options.get("max_source_pixels", DEFAULT_MAX_SOURCE_PIXELS) or 0)
     max_edge = int(options.get("max_source_edge", DEFAULT_MAX_SOURCE_EDGE) or 0)
     img_h, img_w = cv_img.shape[:2]
-    scale = 1.0
-
-    if max_pixels and img_w * img_h > max_pixels:
-        scale = min(scale, sqrt(float(max_pixels) / float(img_w * img_h)))
+    pixels = img_w * img_h
+    problems = []
+    if max_pixels and pixels > max_pixels:
+        problems.append(f"像素量 {pixels:,} 超过安全上限 {max_pixels:,}")
     if max_edge and max(img_w, img_h) > max_edge:
-        scale = min(scale, float(max_edge) / float(max(img_w, img_h)))
+        problems.append(f"最长边 {max(img_w, img_h):,}px 超过安全上限 {max_edge:,}px")
 
-    if scale < 0.999:
-        resized = cv2.resize(
-            cv_img,
-            (max(1, int(round(img_w * scale))), max(1, int(round(img_h * scale)))),
-            interpolation=cv2.INTER_AREA,
+    if problems:
+        raise RuntimeError(
+            "输入页面与当前高质量处理链路不兼容："
+            f"页面尺寸为 {img_w:,}x{img_h:,}px，"
+            + "，".join(problems)
+            + "。为保证输出质量，Slide Maker 不会自动缩小源图；"
+            "请先裁掉超大空白画布、拆分异常页面，或换用页面尺寸正常的输入文件后再转换。"
         )
-        prepared_path = os.path.join(working_dir, f"source_input_{index}.png")
-        cv2.imencode(".png", resized)[1].tofile(prepared_path)
-        _emit_log(
-            log_cb,
-            (
-                "[!] Source page is very large; resized to "
-                f"{resized.shape[1]}x{resized.shape[0]} before OCR/background repair "
-                "to keep memory usage stable."
-            ),
-        )
-        return prepared_path, resized
 
+
+def _prepare_processing_image(img_path, cv_img, working_dir, index, force_write=False):
     if force_write:
         prepared_path = os.path.join(working_dir, f"source_input_{index}.png")
         cv2.imencode(".png", cv_img)[1].tofile(prepared_path)
-        return prepared_path, cv_img
+        return prepared_path
 
-    return img_path, cv_img
+    return img_path
 
 
 def _scale_text_data(text_data, scale_factor):
@@ -171,13 +163,12 @@ def process_images_to_ppt(
             cv_img = scan_document(cv_img, log_cb=log_cb)
             scanner_applied = True
 
-        source_image_path, cv_img = _prepare_processing_image(
+        _validate_processing_image_compatibility(cv_img, options)
+        source_image_path = _prepare_processing_image(
             source_image_path,
             cv_img,
             working_dir,
             i,
-            log_cb,
-            options,
             force_write=scanner_applied,
         )
 

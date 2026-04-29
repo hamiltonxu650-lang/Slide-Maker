@@ -11,7 +11,7 @@ Slide Maker is a local-first tool that turns PDFs, screenshots, scanned pages, a
 - Windows keeps its own platform shell: Windows title-bar controls, Windows-friendly font fallback, and Windows-only file picker behavior.
 - The blurry app icons in the title bar and sidebar were fixed by using the high-resolution PNG asset for in-app display.
 - Mac GUI launches now search bundled app resources plus common user Node locations, so high-fidelity output does not fall back just because the GUI process has a minimal `PATH`.
-- PDF conversion now caps oversized page rendering and large LaMa repair passes to avoid memory exhaustion on huge PDFs.
+- PDF conversion now runs a compatibility preflight for oversized pages and stops safely instead of lowering DPI or shrinking the page.
 - Background repair requires LaMa and no longer silently falls back to OpenCV.
 - Packaged builds prefer bundled runtimes more reliably.
 
@@ -104,8 +104,10 @@ The current Mac-side conversion flow was retested after the frontend sync:
 The latest `v0.4.0` stability pass also retested the two reported failure paths:
 
 - PNG/image conversion was rerun with a restricted GUI-like environment (`PATH=/usr/bin:/bin`) and still produced Node high-fidelity output.
-- PDF conversion from `test/Barcelona_Redefined_page1.pdf` completed with RapidOCR, LaMa downscale-composite repair, and Node high-fidelity output.
-- An intentionally oversized synthetic PDF page was automatically rendered at a safe lower DPI before OCR/LaMa, then exported successfully as `.pptx`.
+- In quality-preserving mode, pages above roughly `6 MP` or `3200 px` on the longest edge are treated as incompatible with the full OCR/LaMa path until the source PDF is cropped or split.
+- `test/Quiz 1.pdf` at 200 DPI completed without OCR downscaling, without PDF DPI reduction, and with direct LaMa repair plus Node high-fidelity output.
+- `test/Barcelona_Redefined_page1.pdf` at 200 DPI was identified as incompatible with the no-downscale path because it renders to about `8.15 MP`.
+- An intentionally oversized synthetic PDF page is now rejected during compatibility preflight with a clear message instead of lowering DPI or exhausting memory.
 
 The Windows portable package structure was checked on macOS, including `SlideMaker.exe`, bundled Python, bundled Node, OCR models, and `big-lama.pt`. A true Windows output run still needs to be executed on Windows or in a Windows VM because macOS cannot run the Windows executable directly.
 

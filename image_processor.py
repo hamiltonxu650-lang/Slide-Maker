@@ -2,9 +2,8 @@ import cv2
 import numpy as np
 import os
 
-LAMA_MAX_PIXELS = 6_000_000
-LAMA_MAX_DIMENSION = 3200
-LAMA_WORKING_MAX_DIMENSION = 1600
+LAMA_MAX_PIXELS = 12_000_000
+LAMA_MAX_DIMENSION = 4096
 
 
 def _emit_log(log_cb, message):
@@ -141,40 +140,17 @@ def inpaint_background(image_path, text_data, output_path, use_ai=True, cleanup_
             result.shape[0] * result.shape[1] > LAMA_MAX_PIXELS
             or max(result.shape[0], result.shape[1]) > LAMA_MAX_DIMENSION
         )
-        from inpainting_engine import inpaint_image_lama
-        from PIL import Image
-
         if oversized_for_lama:
-            _emit_log(log_cb, "[*] Image too large for direct LaMa AI. Using smart downscale-composite LaMa.")
-            try:
-                # Keep the neural repair pass bounded; blend the repaired regions back at full size.
-                scale = LAMA_WORKING_MAX_DIMENSION / max(result.shape[0], result.shape[1])
-                new_w = max(1, int(round(result.shape[1] * scale)))
-                new_h = max(1, int(round(result.shape[0] * scale)))
-
-                small_img = cv2.resize(result, (new_w, new_h), interpolation=cv2.INTER_AREA)
-                small_mask = cv2.resize(full_mask, (new_w, new_h), interpolation=cv2.INTER_NEAREST)
-
-                pil_img = Image.fromarray(cv2.cvtColor(small_img, cv2.COLOR_BGR2RGB))
-                clean_pil = inpaint_image_lama(pil_img, small_mask)
-                small_clean = cv2.cvtColor(np.array(clean_pil), cv2.COLOR_RGB2BGR)
-
-                # Upscale back to original size and blend only on the masked region.
-                big_clean = cv2.resize(small_clean, (result.shape[1], result.shape[0]), interpolation=cv2.INTER_CUBIC)
-                alpha = cv2.GaussianBlur(full_mask, (11, 11), 0).astype(np.float32) / 255.0
-                inverse_alpha = 1.0 - alpha
-                blended = result.copy()
-                for channel in range(3):
-                    blended[:, :, channel] = (
-                        result[:, :, channel].astype(np.float32) * inverse_alpha
-                        + big_clean[:, :, channel].astype(np.float32) * alpha
-                    ).astype(np.uint8)
-
-                result = blended
-                _emit_log(log_cb, "[*] Background repair backend: LaMa AI (Downscaled composite)")
-            except Exception as exc:
-                raise RuntimeError(f"LaMa AI failed during downscaled background repair: {exc}") from exc
+            raise RuntimeError(
+                "输入页面超过 LaMa 高质量背景修复上限："
+                f"页面尺寸为 {result.shape[1]:,}x{result.shape[0]:,}px。"
+                "为保证输出质量，Slide Maker 不会自动缩小页面或降低修复精度；"
+                "请先裁掉超大空白画布、拆分异常页面，或换用页面尺寸正常的输入文件后再转换。"
+            )
         else:
+            from inpainting_engine import inpaint_image_lama
+            from PIL import Image
+
             try:
                 pil_img = Image.fromarray(cv2.cvtColor(result, cv2.COLOR_BGR2RGB))
                 clean_pil = inpaint_image_lama(pil_img, full_mask)
